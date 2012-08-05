@@ -23,16 +23,37 @@ THE SOFTWARE.
 #ifndef __SALSASM_H__
 #define __SALSASM_H__
 
+#include <stdint.h>
+
+#ifdef _MSC_VER
+	#ifndef __cplusplus
+		typedef unsigned char bool;
+		#define true  1
+		#define false 0
+	#endif
+#else
+	#ifndef __cplusplus
+		#include <stdbool.h>
+	#endif
+#endif
+
 
 typedef enum X86Operation
 {
-	X86_NOP;
+	X86_NOP
 } X86Operation;
 
 typedef struct X86Instruction
 {
 	X86Operation op;
 } X86Instruction;
+
+
+typedef bool (*InstructionFetchCallback)(void* ctxt, uint8_t* result);
+
+bool Disassemble16(InstructionFetchCallback fetch, X86Instruction* instr);
+bool Disassemble32(InstructionFetchCallback fetch, X86Instruction* instr);
+bool Disassemble64(InstructionFetchCallback fetch, X86Instruction* instr);
 
 
 #endif /* __SALSASM_H__ */

@@ -22,3 +22,20 @@ THE SOFTWARE.
 */
 #include "salsasm.h"
 
+
+bool Disassemble16(InstructionFetchCallback fetch, X86Instruction* instr)
+{
+	return false;
+}
+
+
+bool Disassemble32(InstructionFetchCallback fetch, X86Instruction* instr)
+{
+	return false;
+}
+
+
+bool Disassemble64(InstructionFetchCallback fetch, X86Instruction* instr)
+{
+	return false;
+}
