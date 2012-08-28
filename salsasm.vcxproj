@@ -111,10 +111,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="primary.c" />
     <ClCompile Include="salsasm.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="primary.h" />
     <ClInclude Include="salsasm.h" />
+    <ClInclude Include="salsasm_types.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

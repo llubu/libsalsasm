@@ -18,7 +18,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
 */
 #ifndef __SALSASM_H__
 #define __SALSASM_H__
@@ -200,13 +199,13 @@ typedef enum X86OperandType
 
 	// GPRs
 	X86_AL, X86_AH, X86_AX, X86_EAX, X86_RAX,
-	X86_BL, X86_BH, X86_BX, X86_RBX,
 	X86_CL, X86_CH, X86_CX, X86_ECX, X86_RCX,
 	X86_DL, X86_DH, X86_DX, X86_EDX, X86_RDX,
+	X86_BL, X86_BH, X86_BX, X86_EBX, X86_RBX,
+	X86_SPL, X86_SP, X86_ESP, X86_RSP,
+	X86_BPL, X86_BP, X86_EBP, X86_RBP,
 	X86_SIL, X86_SI, X86_ESI, X86_RSI,
 	X86_DIL, X86_DI, X86_EDI, X86_RDI,
-	X86_BPL, X86_BP, X86_EBP, X86_RBP,
-	X86_SPL, X86_SP, X86_ESP, X86_RSP,
 	X86_R8B, X86_R8D, X86_R8,
 	X86_R9B, X86_R9D, X86_R9,
 	X86_R10B, X86_R10D, X86_R10,
@@ -219,7 +218,7 @@ typedef enum X86OperandType
 	// FPU, MMX
 	X86_FPU_TAG, X86_FPU_STATUS, X86_FPU_CONTROL, X86_FPU_DATA, X86_FPU_IP, X86_FP_OPCODE,
 	X86_ST0, X86_ST2, X86_ST3, X86_ST4, X86_ST5, X86_ST6, X86_ST7,
-	x86_MM0, X86_MM1, X86_MM2, X86_MM3, X86_MM4, X86_MM5, X86_MM6, X86_MM7,
+	X86_MM0, X86_MM1, X86_MM2, X86_MM3, X86_MM4, X86_MM5, X86_MM6, X86_MM7,
 
 	// SSE, AVX
 	X86_MXCSR,
@@ -238,37 +237,71 @@ typedef enum X86OperandType
 	X86_IDTR, X86_GDTR, X86_LDTR, X86_TR
 } X86OperandType;
 
+typedef struct X86Operand
+{
+	X86OperandType operandType;
+	X86OperandType components[2];
+	uint8_t size;
+	uint8_t scale;
+	int64_t immediate;
+} X86Operand;
+
 typedef enum X86InstructionPrefixes
 {
 	// Legacy prefixes
+
+	// Group 1 Prefixes (lock and rep**)
 	X86_LOCK,
+	X86_REP,
+	X86_REPE,
+	X86_REPNE,
+
+	// Group 2 Prefixes (segment and branch hints)
+	X86_SEG_CS,
 	X86_SEG_SS,
 	X86_SEG_DS,
 	X86_SEG_ES,
 	X86_SEG_FS,
 	X86_SEG_GS,
+
+	X86_NOT_TAKEN,
+	X86_TAKEN,
+
+	// Group 3
 	X86_OPERAND_SIZE,
+
+	// Group 4
 	X86_ADDRESS_SIZE,
-	X86_REP,
-	X86_REPE,
-	X86_REPNE,
 
 	X86_REX,
 	X86_VEX,
 	X86_XOP,
 } X86InstructionPrefixes;
 
+typedef enum X86InstructionFlags
+{
+	X86_FLAG_LOCK,
+	X86_FLAG_REP,
+	X86_FLAG_REPNE,
+	X86_FLAG_REPE
+
+	// TODO: segment overrides?
+} X86InstructionFlags;
+
 typedef struct X86Instruction
 {
 	X86Operation op;
+	X86Operand operands[4];
+	uint8_t operandCount;
+	X86InstructionFlags flags;
 } X86Instruction;
 
 
 typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result);
 
-bool Disassemble16(InstructionFetchCallback fetch, X86Instruction* instr);
-bool Disassemble32(InstructionFetchCallback fetch, X86Instruction* instr);
-bool Disassemble64(InstructionFetchCallback fetch, X86Instruction* instr);
+bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
 
 
 #endif /* __SALSASM_H__ */

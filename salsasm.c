@@ -18,9 +18,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
 */
-#include "salsasm.h"
+#include "salsasm_types.h"
 
 static const char* const X86Mnemonics[] =
 {
@@ -168,19 +167,29 @@ static const char* const X86Mnemonics[] =
 };
 
 
-bool Disassemble16(InstructionFetchCallback fetch, X86Instruction* instr)
+
+bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
+{
+	X86DecoderState state;
+
+	state.fetch = fetch;
+	state.ctxt = ctxt;
+	state.instr = instr;
+	state.valid = true;
+	state.mode = X86_16BIT;
+	state.operandSize = X86_16BIT;
+
+	return false;
+}
+
+
+bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
 	return false;
 }
 
 
-bool Disassemble32(InstructionFetchCallback fetch, X86Instruction* instr)
-{
-	return false;
-}
-
-
-bool Disassemble64(InstructionFetchCallback fetch, X86Instruction* instr)
+bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
 	return false;
 }
