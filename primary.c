@@ -30,22 +30,171 @@ static const X86Operation primaryOpCodeTableArithmetic[] =
 	X86_OR, X86_SBB, X86_SUB, X86_CMP
 };
 
-static const X86OperandType primaryOpCodeModRm[5][8] =
+typedef struct PrimaryOpCodeTableArithmeticOperands
 {
-	// 8bit
-	{X86_AL, X86_CL, X86_DL, X86_BL, X86_AH, X86_CH, X86_DH, X86_BH},
+	X86Operand dest;
+	X86Operand src;
+	uint8_t dispBytes;
+	uint8_t sibBytes;
+} PrimaryOpCodeTableArithmeticOperands;
 
-	// 16bit
-	{X86_AX, X86_CX, X86_DX, X86_BX, X86_SP, X86_BP, X86_SI, X86_DI},
+#define PRIMARY_ARITHMETIC_OPERANDS8(a, b, c, d) \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_AL, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_CL, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_DL, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_BL, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_AH, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_CH, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_DH, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, {X86_BH, {X86_NONE, X86_NONE}, X86_NONE, 1, 0, 0}, d, 0}
 
-	// 32bit
-	{X86_EAX, X86_ECX, X86_EDX, X86_EBX, X86_ESP, X86_EBP, X86_ESI, X86_EDI},
+static const PrimaryOpCodeTableArithmeticOperands primaryOpcodeArithmeticOperands8[256] =
+{
+	// Mod 00
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, SI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, DI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, SI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, DI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, SI, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, DI, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, NONE, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, NONE, 0),
 
-	// 64bit
-	{X86_MM0, X86_MM1, X86_MM2, X86_MM3, X86_MM4, X86_MM5, X86_MM6, X86_MM7},
+	// Mod 01
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, SI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, DI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, SI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, DI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, SI, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, DI, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, NONE, 1),
 
-	// 128bit
-	{X86_XMM0, X86_XMM1, X86_XMM2, X86_XMM3, X86_XMM4, X86_XMM5, X86_XMM6, X86_XMM7},
+	// Mod 10
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, SI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, DI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, SI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, DI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, SI, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, DI, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BP, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS8(MEM, BX, NONE, 2),
+
+	// Mod 11
+	PRIMARY_ARITHMETIC_OPERANDS8(AL, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(CL, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(DL, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(BL, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(AH, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(CH, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(DH, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS8(BH, NONE, NONE, 0),
+};
+
+#define PRIMARY_ARITHMETIC_OPERANDS16(a, b, c, d) \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_AX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_CX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_DX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_BX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_SP, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 2, 0, 0}, {X86_BP, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_SI, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_DI, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, 0}
+
+static const PrimaryOpCodeTableArithmeticOperands primaryOpcodeArithmeticOperands16[256] =
+{
+	// Mod 00
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, SI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, DI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, SI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, DI, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, SI, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, DI, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, NONE, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, NONE, 0),
+
+	// Mod 01
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, SI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, DI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, SI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, DI, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, SI, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, DI, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, NONE, 1),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, NONE, 1),
+
+	// Mod 10
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, SI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, DI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, SI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, DI, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, SI, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, DI, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BP, NONE, 2),
+	PRIMARY_ARITHMETIC_OPERANDS16(MEM, BX, NONE, 2),
+
+	// Mod 11
+	PRIMARY_ARITHMETIC_OPERANDS16(AX, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(CX, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(DX, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(BX, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(SP, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(BP, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(SI, NONE, NONE, 0),
+	PRIMARY_ARITHMETIC_OPERANDS16(DI, NONE, NONE, 0),
+};
+
+#define PRIMARY_ARITHMETIC_OPERANDS32(a, b, c, d, e) \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_AX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_CX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_DX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_BX, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_SP, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 2, 0, 0}, {X86_BP, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_SI, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}, \
+{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, {X86_DI, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, d, e}
+
+static const X86Operand primaryOpArithmeticCodeOperands32[256][256] =
+{
+	// Mod 00
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EAX, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ECX, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDX, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EBX, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(NONE, NONE, NONE, 0, 1), // SIB
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, NONE, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ESI, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDI, NONE, 0, 0),
+
+	// Mod 01
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EAX, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ECX, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDX, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EBX, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(NONE, NONE, NONE, 1, 1), // SIB
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, NONE, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ESI, NONE, 1, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDI, NONE, 1, 0),
+
+	// Mod 10
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EAX, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ECX, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDX, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EBX, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(NONE, NONE, NONE, 4, 1), // SIB
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, NONE, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, ESI, NONE, 4, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(MEM, EDI, NONE, 4, 0),
+
+	// Mod 11
+	PRIMARY_ARITHMETIC_OPERANDS32(EAX, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(ECX, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(EDX, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(EBX, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(ESP, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(EBP, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(ESI, NONE, NONE, 0, 0),
+	PRIMARY_ARITHMETIC_OPERANDS32(EDI, NONE, NONE, 0, 0),
 };
 
 typedef enum ModRMDisplacementEncoding
@@ -66,13 +215,13 @@ static bool DecodeModRm8(X86DecoderState* state)
 		return false;
 
 	// Source is a GPR
-	state->instr->operands[1].operandType = (X86OperandType)(X86_AX + (modRm & 7));
+	state->instr->operands[1].operandType = (X86OperandType)(X86_EAX + (modRm & 7));
 
 	mod = (modRm >> 6);
 	if (mod == 3)
 	{
 		// Both source and destination are GPRs
-		state->instr->operands[0].operandType = (X86OperandType)(X86_AX + ((modRm >> 3) & 7));
+		state->instr->operands[0].operandType = (X86OperandType)(X86_EAX + ((modRm >> 3) & 7));
 	}
 	else
 	{
@@ -95,6 +244,12 @@ static bool DecodeModRm8(X86DecoderState* state)
 			if ((mod == 0) && (state->instr->operands[0].components[1] == X86_EBP))
 				state->instr->operands[0].components[1] = X86_NONE;
 		}
+		else
+		{
+			// No SIB byte, just a base+displacement
+			state->instr->operands[0].components[0] = (X86OperandType)(X86_EAX + (modRm >> 3) & 7);
+			state->instr->operands[0].components[1] = X86_IMMEDIATE;
+		}
 
 		// The mod bits tell how many bytes in the displacement
 		if (mod)
@@ -102,6 +257,16 @@ static bool DecodeModRm8(X86DecoderState* state)
 			uint16_t disp;
 			if (!state->fetch(state->ctxt, mod, (uint8_t*)&disp))
 				return false;
+			state->instr->operands[0].immediate = (int64_t)disp;
+		}
+		else if ((modRm >> 3) & 7)
+		{
+			uint32_t disp;
+			if (!state->fetch(state->ctxt, mod, (uint8_t*)&disp))
+				return false;
+
+			// No base, 4 byte displacement only
+			state->instr->operands[0].components[0] = X86_NONE;
 			state->instr->operands[0].immediate = (int64_t)disp;
 		}
 	}
@@ -124,9 +289,67 @@ static bool DecodeModRm16(X86DecoderState* state)
 static bool DecodeModRm32(X86DecoderState* state)
 {
 	uint8_t modRm;
+	uint8_t mod;
 
 	if (!state->fetch(state->ctxt, 1, &modRm))
 		return false;
+
+	// Source is a GPR
+	state->instr->operands[1].operandType = (X86OperandType)(X86_EAX + (modRm & 7));
+
+	mod = (modRm >> 6);
+	if (mod == 3)
+	{
+		// Both source and destination are GPRs
+		state->instr->operands[0].operandType = (X86OperandType)(X86_EAX + ((modRm >> 3) & 7));
+	}
+	else
+	{
+		// Destination is memory
+		state->instr->operands[0].operandType = X86_MEM;
+
+		// R/M field == 4 indicates presence of SIB byte
+		if ((modRm & 0x38) == 0x20)
+		{
+			uint8_t sib;
+			if (!state->fetch(state->ctxt, 1, &sib))
+				return false;
+
+			state->instr->operands[0].scale = (1 << (sib >> 6));
+			state->instr->operands[0].components[0] = (X86OperandType)(X86_EAX + ((sib >> 3) & 7));
+			state->instr->operands[0].components[1] = (X86OperandType)(X86_EAX + (sib & 7));
+
+			if (state->instr->operands[0].components[0] == X86_ESP)
+				state->instr->operands[0].components[0] = X86_NONE;
+			if ((mod == 0) && (state->instr->operands[0].components[1] == X86_EBP))
+				state->instr->operands[0].components[1] = X86_NONE;
+		}
+		else
+		{
+			// No SIB byte, just a base+displacement
+			state->instr->operands[0].components[0] = (X86OperandType)(X86_EAX + (modRm >> 3) & 7);
+			state->instr->operands[0].components[1] = X86_IMMEDIATE;
+		}
+
+		// The mod bits tell how many bytes in the displacement
+		if (mod)
+		{
+			uint16_t disp;
+			if (!state->fetch(state->ctxt, mod, (uint8_t*)&disp))
+				return false;
+			state->instr->operands[0].immediate = (int64_t)disp;
+		}
+		else if ((modRm >> 3) & 7)
+		{
+			uint32_t disp;
+			if (!state->fetch(state->ctxt, mod, (uint8_t*)&disp))
+				return false;
+
+			// No base, 4 byte displacement only
+			state->instr->operands[0].components[0] = X86_NONE;
+			state->instr->operands[0].immediate = (int64_t)disp;
+		}
+	}
 
 	return true;
 }

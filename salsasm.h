@@ -241,6 +241,7 @@ typedef struct X86Operand
 {
 	X86OperandType operandType;
 	X86OperandType components[2];
+	uint8_t segment;
 	uint8_t size;
 	uint8_t scale;
 	int64_t immediate;
