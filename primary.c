@@ -28,7 +28,7 @@ typedef struct PrimaryOpCodeTableArithmeticOperands
 {
 	X86Operand operands[2];
 	uint8_t dispBytes;
-	uint8_t sibBytes;
+	uint8_t sib;
 } PrimaryOpCodeTableArithmeticOperands;
 
 #define PRIMARY_ARITHMETIC_OPERANDS8(a, b, c, d) \
@@ -190,6 +190,34 @@ static const PrimaryOpCodeTableArithmeticOperands modRmOperands32[256] =
 	PRIMARY_ARITHMETIC_OPERANDS32(EDI, NONE, NONE, 0, 0),
 };
 
+#define PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, index) \
+{X86_MEM, {X86_EAX, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_ECX, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_EDX, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_EBX, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_ESP, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_NONE, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_ESI, index}, X86_DS, 4, scale, 0}, \
+{X86_MEM, {X86_EDI, index}, X86_DS, 4, scale, 0}
+
+#define PRIMARY_ARITHMETIC_SIB_OPERAND_COL(scale) \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_EAX), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_ECX), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_EDX), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_EBX), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_NONE), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_EBP), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_ESI), \
+	PRIMARY_ARITHMETIC_SIB_OPERAND_ROW(scale, X86_EDI) \
+
+static const X86Operand sibTable[256] =
+{
+	PRIMARY_ARITHMETIC_SIB_OPERAND_COL(0),
+	PRIMARY_ARITHMETIC_SIB_OPERAND_COL(1),
+	PRIMARY_ARITHMETIC_SIB_OPERAND_COL(2),
+	PRIMARY_ARITHMETIC_SIB_OPERAND_COL(3)
+};
+
 typedef enum OpCodeSize
 {
 	OP_8BIT = 0,
@@ -232,14 +260,61 @@ static const uint8_t operandOrder[2][2] =
 static bool DecodeModRm(X86DecoderState* state,
 	const PrimaryOpCodeTableArithmeticOperands* operands, const uint8_t operandOrder[2])
 {
-	return false;
+	uint8_t modRm;
+	const X86Operand* newOperands[2];
+
+	// Fetch the modrm byte
+	if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&modRm))
+		return false;
+
+	newOperands[1] = &operands[modRm].operands[1];
+	if (operands->sib)
+	{
+		uint8_t sib;
+		if (!state->fetch(state->ctxt, 1, &sib))
+			return false;
+		newOperands[0] = &sibTable[sib];
+	}
+	else
+	{
+		newOperands[0] = &operands[modRm].operands[0];
+	}
+
+	state->instr->operands[0] = *newOperands[operandOrder[0]];
+	state->instr->operands[1] = *newOperands[operandOrder[1]];
+
+	if (operands->dispBytes)
+	{
+		uint64_t displacement;
+		int64_t sign;
+		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
+			return false;
+
+		// Now sign extend the displacement to 64bits.
+		sign = displacement << (operands->dispBytes << 3);
+		state->instr->operands[operandOrder[1]].immediate = displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
+	}
+
+	return true;
 }
 
 static bool DecodeImmediate(X86DecoderState* state,
 	const PrimaryOpCodeTableArithmeticOperands* operands, const uint8_t operandOrder[2])
 {
+	uint64_t imm;
+	int64_t sign;
+
 	state->instr->operands[0] = operands->operands[operandOrder[0]];
 	state->instr->operands[1] = operands->operands[operandOrder[1]];
+
+	// Fetch the immediate value
+	if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&imm))
+		return false;
+
+	// Now sign extend the immediate to 64bits.
+	sign = imm << (operands->dispBytes << 3);
+	state->instr->operands[operandOrder[1]].immediate = imm | ((sign >> ((8 - operands->dispBytes) << 3)));
+
 	return true;
 }
 
