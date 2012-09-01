@@ -292,7 +292,7 @@ static bool DecodeModRm(X86DecoderState* state,
 
 		// Now sign extend the displacement to 64bits.
 		sign = displacement << (operands->dispBytes << 3);
-		state->instr->operands[operandOrder[1]].immediate = displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
+		state->instr->operands[operandOrder[0]].immediate = displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
 	}
 
 	return true;
