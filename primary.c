@@ -22,8 +22,6 @@ THE SOFTWARE.
 #include "salsasm_types.h"
 
 
-typedef bool (*DecodeOperandsFunc)(X86DecoderState* state);
-
 typedef struct PrimaryOpCodeTableArithmeticOperands
 {
 	X86Operand operands[2];
@@ -218,14 +216,6 @@ static const X86Operand sibTable[256] =
 	PRIMARY_ARITHMETIC_SIB_OPERAND_COL(3)
 };
 
-typedef enum OpCodeSize
-{
-	OP_8BIT = 0,
-	OP_16BIT = 1,
-	OP_32BIT = 2,
-	OP_64BIT = 3
-} OpCodeSize;
-
 static const PrimaryOpCodeTableArithmeticOperands primaryArithmeticImmediateOperands[4] =
 {
 	// 8bit
@@ -341,8 +331,8 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* state)
 		{&primaryArithmeticImmediateOperands[0], modRmOperands8},
 
 		// Default operand size width
-		{&primaryArithmeticImmediateOperands[state->operandSize - 1],
-		modRmOpSizeXref[state->operandSize - 1]}
+		{&primaryArithmeticImmediateOperands[state->operandSize],
+		modRmOpSizeXref[state->operandSize]}
 	};
 
 	// Grab a byte from the machine
