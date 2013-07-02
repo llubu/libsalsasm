@@ -247,8 +247,8 @@ static const uint8_t operandOrder[2][2] =
 	{0, 1}, {1, 0}
 };
 
-static bool DecodeModRm(X86DecoderState* state,
-	const PrimaryOpCodeTableArithmeticOperands* operands, const uint8_t operandOrder[2])
+static bool DecodeModRm(X86DecoderState* const state,
+	const PrimaryOpCodeTableArithmeticOperands* const operands, const uint8_t order[2])
 {
 	uint8_t modRm;
 	const X86Operand* newOperands[2];
@@ -270,8 +270,8 @@ static bool DecodeModRm(X86DecoderState* state,
 		newOperands[0] = &operands[modRm].operands[0];
 	}
 
-	state->instr->operands[0] = *newOperands[operandOrder[0]];
-	state->instr->operands[1] = *newOperands[operandOrder[1]];
+	state->instr->operands[0] = *newOperands[order[0]];
+	state->instr->operands[1] = *newOperands[order[1]];
 
 	if (operands->dispBytes)
 	{
@@ -281,46 +281,47 @@ static bool DecodeModRm(X86DecoderState* state,
 			return false;
 
 		// Now sign extend the displacement to 64bits.
-		sign = displacement << (operands->dispBytes << 3);
-		state->instr->operands[operandOrder[0]].immediate = (int64_t)displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
+		sign = (displacement << (operands->dispBytes << 3) & 0x8000000000000000);
+		state->instr->operands[order[0]].immediate = (int64_t)displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
 	}
 
 	return true;
 }
 
-static bool DecodeImmediate(X86DecoderState* state,
-	const PrimaryOpCodeTableArithmeticOperands* operands, const uint8_t operandOrder[2])
+
+static bool DecodeImmediate(X86DecoderState* const state,
+	const PrimaryOpCodeTableArithmeticOperands* const operands, const uint8_t order[2])
 {
 	uint64_t imm;
 	int64_t sign;
 
-	state->instr->operands[0] = operands->operands[operandOrder[0]];
-	state->instr->operands[1] = operands->operands[operandOrder[1]];
+	state->instr->operands[0] = operands->operands[order[0]];
+	state->instr->operands[1] = operands->operands[order[1]];
 
 	// Fetch the immediate value
 	if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&imm))
 		return false;
 
 	// Now sign extend the immediate to 64bits.
-	sign = imm << (operands->dispBytes << 3);
-	state->instr->operands[operandOrder[1]].immediate = (int64_t)imm | ((sign >> ((8 - operands->dispBytes) << 3)));
+	sign = (imm << (operands->dispBytes << 3) & 0x8000000000000000);
+	state->instr->operands[order[1]].immediate = (int64_t)imm | ((sign >> ((8 - operands->dispBytes) << 3)));
 
 	return true;
 }
 
 
-typedef bool (*OperandDecoderFunc)(X86DecoderState* state,
-	const PrimaryOpCodeTableArithmeticOperands* operands,
-	const uint8_t operandOrder[2]);
+typedef bool (*OperandDecoderFunc)(X86DecoderState* const state,
+	const PrimaryOpCodeTableArithmeticOperands* const operands,
+	const uint8_t order[2]);
 
 static const OperandDecoderFunc opDecoders[2] =
 {
 	DecodeModRm, DecodeImmediate
 };
 
-typedef bool (*PrimaryDecoder)(X86DecoderState* state, uint8_t row, uint8_t col);
+typedef bool (*PrimaryDecoder)(X86DecoderState* const state, uint8_t row, uint8_t col);
 
-static bool DecodeInvalid(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeInvalid(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	(void)state;
 	(void)row;
@@ -330,9 +331,9 @@ static bool DecodeInvalid(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static bool DecodePrimaryArithmetic(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
-	const uint8_t reverseOperands = ((col & 2) >> 1);
+	const uint8_t direction = ((col & 2) >> 1);
 	const uint8_t operandForm = ((col & 4) >> 2); // IMM or MODRM
 	const uint8_t operandSize = (col & 1); // 1byte or default operand size
 	const PrimaryOpCodeTableArithmeticOperands* operands;
@@ -350,14 +351,14 @@ static bool DecodePrimaryArithmetic(X86DecoderState* state, uint8_t row, uint8_t
 	state->instr->operandCount = 2;
 
 	operands = opXref[operandSize][operandForm];
-	if (!opDecoders[operandForm](state, operands, operandOrder[reverseOperands]))
+	if (!opDecoders[operandForm](state, operands, operandOrder[direction]))
 		return false;
 
 	return true;
 }
 
 
-static bool DecodePushPopSegment(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodePushPopSegment(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[2][2] = {{X86_PUSH, X86_POP}, {X86_PUSH, X86_INVALID}};
 	static const X86Operand operands[2][2] =
@@ -380,7 +381,7 @@ static bool DecodePushPopSegment(X86DecoderState* state, uint8_t row, uint8_t co
 }
 
 
-static bool DecodeAscii(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeAscii(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[2] = {X86_DAA, X86_AAA};
 	state->instr->op = ops[row & 1];
@@ -394,7 +395,7 @@ typedef struct RegAndSize
 	uint8_t size;
 } RegAndSize;
 
-static bool DecodeIncDec(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeIncDec(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[2] = {X86_INC, X86_DEC};
 	static const RegAndSize operands[2][8] =
@@ -422,7 +423,7 @@ static bool DecodeIncDec(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static bool DecodePushPopGpr(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[2] = {X86_PUSH, X86_POP};
 	static const RegAndSize operands[2][8] =
@@ -450,7 +451,7 @@ static bool DecodePushPopGpr(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static bool DecodeJumpConditional(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeJumpConditional(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[16] =
 	{
@@ -468,6 +469,214 @@ static bool DecodeJumpConditional(X86DecoderState* state, uint8_t row, uint8_t c
 	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)disp;
 
 	return true;
+}
+
+
+static bool DecodePushPopAll(X86DecoderState* const state, uint8_t row, uint8_t col)
+{
+	X86Operation ops[3][2] = {{X86_PUSHA, X86_POPA}, {X86_PUSHA, X86_POPA}, {X86_PUSHAD, X86_POPAD}};
+
+	state->instr->op = ops[state->mode][row & 1];
+	state->instr->operandCount = 0;
+	return true;
+}
+
+
+static bool DecodeBound(X86DecoderState* const state, uint8_t row, uint8_t col)
+{
+	static const X86Operation ops[3] = {X86_BOUND, X86_BOUND, X86_INVALID};
+	static const uint8_t order[2] = {1, 0};
+
+	state->instr->op = ops[state->mode];
+	state->instr->operandCount = 2;
+
+	if (state->instr->op == X86_INVALID)
+		return false;
+
+	if (!DecodeModRm(state, modRmOpSizeXref[state->operandSize], order))
+		return false;
+
+	if (state->instr->operands[1].operandType != X86_MEM)
+		return false;
+
+	return true;
+}
+
+
+static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t row, uint8_t col)
+{
+	static const X86Operation ops[3] = {X86_ARPL, X86_ARPL, X86_MOVSXD};
+	X86DecoderMode opSize[3] = {X86_16BIT, X86_16BIT, state->operandSize};
+	static const uint8_t order[3] = {0, 0, 1};
+
+	state->instr->op = ops[state->mode];
+	state->instr->operandCount = 2;
+
+	if (!DecodeModRm(state, modRmOpSizeXref[opSize[state->mode]], operandOrder[order[state->mode]]))
+		return false;
+
+	return true;
+}
+
+
+static bool DecodePushImmediate(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint64_t imm;
+	int64_t sign;
+	uint8_t operandModes[3] = {state->operandSize, state->operandSize, X86_64BIT};
+	uint8_t operandSizes[3] = {2, 4, 8};
+	uint8_t operandBytes;
+
+	state->instr->op = X86_PUSH;
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+
+	operandBytes = operandSizes[operandModes[state->mode]];
+
+	// Fetch the immediate value
+	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
+		return false;
+
+	// Now sign extend the immediate to 64bits.
+	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
+	state->instr->operands[0].immediate = (int64_t)imm | ((sign >> ((8 - operandBytes) << 3)));
+
+	return true;
+}
+
+
+static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation group1Operations[] =
+	{
+		X86_ADD, X86_OR, X86_ADC, X86_SBB, X86_AND, X86_SUB, X86_XOR, X86_CMP
+	};
+	uint8_t modRm;
+	uint8_t opBits;
+	const uint8_t width = (col & 1);
+	const PrimaryOpCodeTableArithmeticOperands* operands;
+	uint64_t imm;
+	int64_t sign;
+	uint8_t operandBytes;
+	uint8_t operandSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 8}
+	};
+
+	// Fetch the modrm byte
+	if (!state->fetch(state->ctxt, 1, &modRm))
+		return false;
+
+	opBits = ((modRm >> 3) & 7);
+	state->instr->op = group1Operations[opBits];
+	state->instr->operandCount = 2;
+
+	operands = modRmOpSizeXref[state->operandSize];
+
+	if (operands->sib)
+	{
+		uint8_t sib;
+		if (!state->fetch(state->ctxt, 1, &sib))
+			return false;
+		state->instr->operands[0] = sibTable[sib];
+	}
+	else
+	{
+		state->instr->operands[0] = operands[modRm].operands[0];
+	}
+
+	if (operands->dispBytes)
+	{
+		uint64_t displacement;
+		int64_t sign;
+		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
+			return false;
+
+		// Now sign extend the displacement to 64bits.
+		sign = (displacement << (operands->dispBytes << 3) & 0x8000000000000000);
+		state->instr->operands[0].immediate = (int64_t)displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
+	}
+
+	operandBytes = operandSizes[width][state->operandSize];
+	if (!state->fetch(state->ctxt, state->instr->operands[1].size, (uint8_t*)&imm))
+		return false;
+
+	// Now sign extend the immediate to 64bits.
+	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
+	state->instr->operands[1].immediate = (int64_t)imm | ((sign >> ((8 - operandBytes) << 3)));
+
+	state->instr->operands[1].operandType = X86_IMMEDIATE;
+	state->instr->operands[1].size = operandBytes;
+
+	return true;
+}
+
+
+static bool DecodeTestXchgModRm(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation ops[2] = {X86_TEST, X86_XCHG};
+	static const uint8_t order[2] = {0, 1};
+
+	state->instr->op = ops[col & 1];
+
+	if (!DecodeModRm(state, modRmOpSizeXref[state->operandSize], order))
+		return false;
+
+	return true;
+}
+
+
+static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation ops[8] =
+	{
+		X86_NOP, X86_XCHG, X86_XCHG, X86_XCHG,
+		X86_XCHG, X86_XCHG, X86_XCHG, X86_XCHG
+	};
+	static const X86OperandType sources[3][8] =
+	{
+		{X86_NONE, X86_CX, X86_DX, X86_BX, X86_SP, X86_BP, X86_SI, X86_DI},
+		{X86_NONE, X86_ECX, X86_EDX, X86_EBX, X86_ESP, X86_EBP, X86_ESI, X86_EDI},
+		{X86_NONE, X86_RCX, X86_RDX, X86_RBX, X86_RSP, X86_RBP, X86_RSI, X86_RDI}
+	};
+	static const uint8_t operandCount[8] = {0, 2, 2, 2, 2, 2, 2, 2};
+	static const X86OperandType dests[3] = {X86_AX, X86_EAX, X86_RAX};
+	static const uint8_t operandSizes[3] = {2, 4, 8};
+
+	state->instr->op = ops[col];
+	state->instr->operandCount = operandCount[col];
+	state->instr->operands[0].operandType = dests[state->operandSize];
+	state->instr->operands[0].size = operandSizes[state->operandSize];
+	state->instr->operands[0].operandType = sources[state->operandSize][col];
+	state->instr->operands[1].size = operandSizes[state->operandSize];
+
+	return true;
+}
+
+
+static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint64_t offset;
+	static const uint8_t operandSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 8}
+	};
+	static const uint8_t operands[2][2] =
+	{
+		{0, 1},
+		{1, 0}
+	};
+
+	if (!state->fetch(state->ctxt, operandSizes[col & 1][state->operandSize], (uint8_t*)&offset))
+		return false;
+
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
+	// state->instr->operands[0] = 
+
+	return false;
 }
 
 
@@ -509,19 +718,39 @@ static PrimaryDecoder primaryDecoders[][8] =
 		DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr
 	},
 
-	// Row 6 -- PAIN IN THE ASS ROW
-	// {
-	// },
+	// Row 6
+	{
+		DecodePushPopAll, DecodePushPopAll, DecodeBound, DecodeAarplMovSxd,
+		DecodePushImmediate, DecodeInvalid, DecodeInvalid, DecodeInvalid
+	},
 
 	// Row 7
 	{
 		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
 		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
 	},
+
+	// Row 8
+	{
+		DecodeGroup1, DecodeGroup1, DecodeGroup1, DecodeGroup1,
+		DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm
+	},
+
+	// Row 9
+	{
+		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
+		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax
+	},
+
+	// Row 10
+	{
+		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
+		// DecodeMovSB, DecodeMovSWDQ, DecodeCmpSB, DecodeCmpSWDQ
+	}
 };
 
 // See Table A-1 Primary Opcode Map (One-byte Opcodes) AMD 24594_APM_v3.pdf
-bool DecodePrimaryOpcodeMap(X86DecoderState* state)
+bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 {
 	uint8_t op;
 	uint8_t row;
