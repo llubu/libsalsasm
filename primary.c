@@ -337,7 +337,7 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	const uint8_t operandForm = ((col & 4) >> 2); // IMM or MODRM
 	const uint8_t operandSize = (col & 1); // 1byte or default operand size
 	const PrimaryOpCodeTableArithmeticOperands* operands;
-	const PrimaryOpCodeTableArithmeticOperands* opXref[2][2] =
+	const PrimaryOpCodeTableArithmeticOperands* const opXref[2][2] =
 	{
 		// 8bit
 		{&primaryArithmeticImmediateOperands[0], modRmOperands8},
@@ -474,7 +474,7 @@ static bool DecodeJumpConditional(X86DecoderState* const state, uint8_t row, uin
 
 static bool DecodePushPopAll(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
-	X86Operation ops[3][2] = {{X86_PUSHA, X86_POPA}, {X86_PUSHA, X86_POPA}, {X86_PUSHAD, X86_POPAD}};
+	static const X86Operation ops[3][2] = {{X86_PUSHA, X86_POPA}, {X86_PUSHA, X86_POPA}, {X86_PUSHAD, X86_POPAD}};
 
 	state->instr->op = ops[state->mode][row & 1];
 	state->instr->operandCount = 0;
@@ -506,7 +506,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t row, uint8_t col)
 static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	static const X86Operation ops[3] = {X86_ARPL, X86_ARPL, X86_MOVSXD};
-	X86DecoderMode opSize[3] = {X86_16BIT, X86_16BIT, state->operandSize};
+	const X86DecoderMode opSize[3] = {X86_16BIT, X86_16BIT, state->operandSize};
 	static const uint8_t order[3] = {0, 0, 1};
 
 	state->instr->op = ops[state->mode];
@@ -523,8 +523,8 @@ static bool DecodePushImmediate(X86DecoderState* state, uint8_t row, uint8_t col
 {
 	uint64_t imm;
 	int64_t sign;
-	uint8_t operandModes[3] = {state->operandSize, state->operandSize, X86_64BIT};
-	uint8_t operandSizes[3] = {2, 4, 8};
+	const uint8_t operandModes[3] = {state->operandSize, state->operandSize, X86_64BIT};
+	static const uint8_t operandSizes[3] = {2, 4, 8};
 	uint8_t operandBytes;
 
 	state->instr->op = X86_PUSH;
@@ -558,7 +558,7 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint64_t imm;
 	int64_t sign;
 	uint8_t operandBytes;
-	uint8_t operandSizes[2][3] =
+	static const uint8_t operandSizes[2][3] =
 	{
 		{1, 1, 1},
 		{2, 4, 8}
@@ -680,7 +680,7 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static PrimaryDecoder primaryDecoders[][8] =
+static const PrimaryDecoder primaryDecoders[][8] =
 {
 	// Row 0
 	{
