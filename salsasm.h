@@ -307,13 +307,13 @@ typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result
 #ifdef WIN32
 	#define SALSASMAPI __declspec(dllexport)
 #else
-	// TODO: GCC export
+	#define SALSASMAPI __attribute__ ((visibility ("default")))
 #endif /* WIN32 */
 #else // Import
 #ifdef WIN32
 	#define SALSASMAPI __declspec(dllimport)
 #else
-	// TODO: GCC
+	#define SALSASMAPI
 #endif /* WIN32 */
 #endif /* SALSASM_EXPORTS */
 
