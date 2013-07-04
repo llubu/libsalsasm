@@ -178,6 +178,7 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.valid = true;
 	state.mode = X86_16BIT;
 	state.operandSize = X86_16BIT;
+	state.instr->flags = 0;
 
 	return false;
 }

@@ -287,7 +287,7 @@ typedef enum X86InstructionFlags
 	X86_FLAG_REPE,
 
 	// FIXME: This is a decoder flag really
-	X86_INSUFFICIENT_LENGTH
+	X86_FLAG_INSUFFICIENT_LENGTH
 
 	// TODO: segment overrides?
 } X86InstructionFlags;

@@ -255,14 +255,20 @@ static bool DecodeModRm(X86DecoderState* const state,
 
 	// Fetch the modrm byte
 	if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&modRm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	newOperands[1] = &operands[modRm].operands[1];
 	if (operands->sib)
 	{
 		uint8_t sib;
 		if (!state->fetch(state->ctxt, 1, &sib))
+		{
+			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 			return false;
+		}
 		newOperands[0] = &sibTable[sib];
 	}
 	else
@@ -278,7 +284,10 @@ static bool DecodeModRm(X86DecoderState* const state,
 		uint64_t displacement;
 		int64_t sign;
 		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
+		{
+			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 			return false;
+		}
 
 		// Now sign extend the displacement to 64bits.
 		sign = (displacement << (operands->dispBytes << 3) & 0x8000000000000000);
@@ -300,7 +309,10 @@ static bool DecodeImmediate(X86DecoderState* const state,
 
 	// Fetch the immediate value
 	if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operands->dispBytes << 3) & 0x8000000000000000);
@@ -464,7 +476,10 @@ static bool DecodeJumpConditional(X86DecoderState* const state, uint8_t row, uin
 	state->instr->operands[0].size = 1;
 
 	if (!state->fetch(state->ctxt, 1, &disp))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)disp;
 
@@ -535,7 +550,10 @@ static bool DecodePushImmediate(X86DecoderState* state, uint8_t row, uint8_t col
 
 	// Fetch the immediate value
 	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
@@ -566,7 +584,10 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	// Fetch the modrm byte
 	if (!state->fetch(state->ctxt, 1, &modRm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	opBits = ((modRm >> 3) & 7);
 	state->instr->op = group1Operations[opBits];
@@ -578,7 +599,10 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	{
 		uint8_t sib;
 		if (!state->fetch(state->ctxt, 1, &sib))
+		{
+			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 			return false;
+		}
 		state->instr->operands[0] = sibTable[sib];
 	}
 	else
@@ -591,7 +615,10 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 		uint64_t displacement;
 		int64_t sign;
 		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
+		{
+			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 			return false;
+		}
 
 		// Now sign extend the displacement to 64bits.
 		sign = (displacement << (operands->dispBytes << 3) & 0x8000000000000000);
@@ -600,7 +627,10 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	operandBytes = operandSizes[width][state->operandSize];
 	if (!state->fetch(state->ctxt, state->instr->operands[1].size, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
@@ -670,7 +700,10 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 	};
 
 	if (!state->fetch(state->ctxt, operandSizes[col & 1][state->operandSize], (uint8_t*)&offset))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
@@ -758,7 +791,10 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 
 	// Grab a byte from the machine
 	if (!state->fetch(state->ctxt, 1, &op))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
+	}
 
 	row  = ((op >> 4) & 0xf);
 	col = (op & 0xf);
