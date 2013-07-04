@@ -284,7 +284,10 @@ typedef enum X86InstructionFlags
 	X86_FLAG_LOCK,
 	X86_FLAG_REP,
 	X86_FLAG_REPNE,
-	X86_FLAG_REPE
+	X86_FLAG_REPE,
+
+	// FIXME: This is a decoder flag really
+	X86_INSUFFICIENT_LENGTH
 
 	// TODO: segment overrides?
 } X86InstructionFlags;
@@ -295,14 +298,37 @@ typedef struct X86Instruction
 	X86Operand operands[4];
 	uint8_t operandCount;
 	X86InstructionFlags flags;
+	size_t length;
 } X86Instruction;
-
 
 typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result);
 
-bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+#ifdef SALSASM_EXPORTS
+#ifdef WIN32
+	#define SALSASMAPI __declspec(dllexport)
+#else
+	// TODO: GCC export
+#endif /* WIN32 */
+#else // Import
+#ifdef WIN32
+	#define SALSASMAPI __declspec(dllimport)
+#else
+	// TODO: GCC
+#endif /* WIN32 */
+#endif /* SALSASM_EXPORTS */
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif /* __cplusplus */
+
+	SALSASMAPI bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	SALSASMAPI bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	SALSASMAPI bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 
 #endif /* __SALSASM_H__ */
