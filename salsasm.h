@@ -281,13 +281,14 @@ typedef enum X86InstructionPrefixes
 
 typedef enum X86InstructionFlags
 {
-	X86_FLAG_LOCK,
-	X86_FLAG_REP,
-	X86_FLAG_REPNE,
-	X86_FLAG_REPE,
+	X86_FLAG_NONE = 0,
+	X86_FLAG_LOCK = 1,
+	X86_FLAG_REP = 2,
+	X86_FLAG_REPNE = 4,
+	X86_FLAG_REPE = 8,
 
 	// FIXME: This is a decoder flag really
-	X86_FLAG_INSUFFICIENT_LENGTH
+	X86_FLAG_INSUFFICIENT_LENGTH = 16
 
 	// TODO: segment overrides?
 } X86InstructionFlags;

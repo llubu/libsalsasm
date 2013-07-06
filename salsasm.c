@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 #include "salsasm_types.h"
+#include "primary.h"
 
 static const char* const X86Mnemonics[] =
 {
@@ -178,9 +179,12 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.valid = true;
 	state.mode = X86_16BIT;
 	state.operandSize = X86_16BIT;
-	state.instr->flags = 0;
+	state.instr->flags = X86_FLAG_NONE;
 
-	return false;
+	if (!DecodePrimaryOpcodeMap(&state))
+		return false;
+
+	return true;
 }
 
 
