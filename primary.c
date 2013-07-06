@@ -325,12 +325,6 @@ static bool DecodeImmediate(X86DecoderState* const state,
 typedef bool (*OperandDecoderFunc)(X86DecoderState* const state,
 	const PrimaryOpCodeTableArithmeticOperands* const operands,
 	const uint8_t order[2]);
-
-static const OperandDecoderFunc opDecoders[2] =
-{
-	DecodeModRm, DecodeImmediate
-};
-
 typedef bool (*PrimaryDecoder)(X86DecoderState* const state, uint8_t row, uint8_t col);
 
 static bool DecodeInvalid(X86DecoderState* const state, uint8_t row, uint8_t col)
@@ -345,6 +339,10 @@ static bool DecodeInvalid(X86DecoderState* const state, uint8_t row, uint8_t col
 
 static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
+	static const OperandDecoderFunc opDecoders[2] =
+	{
+		DecodeModRm, DecodeImmediate
+	};
 	const uint8_t direction = ((col & 2) >> 1);
 	const uint8_t operandForm = ((col & 4) >> 2); // IMM or MODRM
 	const uint8_t operandSize = (col & 1); // 1byte or default operand size
@@ -659,10 +657,9 @@ static bool DecodeTestXchgModRm(X86DecoderState* state, uint8_t row, uint8_t col
 
 static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	static const X86Operation ops[8] =
+	static const X86Operation ops[2] =
 	{
-		X86_NOP, X86_XCHG, X86_XCHG, X86_XCHG,
-		X86_XCHG, X86_XCHG, X86_XCHG, X86_XCHG
+		X86_XCHG, X86_NOP
 	};
 	static const X86OperandType sources[3][8] =
 	{
@@ -674,7 +671,7 @@ static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
 	static const X86OperandType dests[3] = {X86_AX, X86_EAX, X86_RAX};
 	static const uint8_t operandSizes[3] = {2, 4, 8};
 
-	state->instr->op = ops[col];
+	state->instr->op = ops[~col];
 	state->instr->operandCount = operandCount[col];
 	state->instr->operands[0].operandType = dests[state->operandSize];
 	state->instr->operands[0].size = operandSizes[state->operandSize];
@@ -690,16 +687,14 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint64_t offset;
 	static const uint8_t operandSizes[2][3] =
 	{
-		{1, 1, 1},
-		{2, 4, 8}
+		{1, 1, 1}, // Column 0, 2
+		{2, 4, 8} // Column 1, 3
 	};
-	static const uint8_t operands[2][2] =
-	{
-		{0, 1},
-		{1, 0}
-	};
+	static const X86OperandType rax[5] = {X86_NONE, X86_AL, X86_AX, X86_EAX, X86_RAX};
+	const uint8_t opSize = operandSizes[col][state->operandSize];
 
-	if (!state->fetch(state->ctxt, operandSizes[col & 1][state->operandSize], (uint8_t*)&offset))
+	if (!state->fetch(state->ctxt, operandSizes[col & 1][state->operandSize],
+		(uint8_t*)&offset))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
@@ -707,8 +702,86 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
-	// state->instr->operands[0] = 
+	state->instr->operands[operandOrder[col][0]].size = opSize;
+	state->instr->operands[operandOrder[col][1]].size = opSize;
 
+	state->instr->operands[operandOrder[col][0]].operandType = rax[opSize];
+	state->instr->operands[operandOrder[col][1]].operandType = X86_MEM;
+	state->instr->operands[operandOrder[col][1]].immediate = offset;
+
+	return true;
+}
+
+
+static bool DecodeMovSCmpS(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation operation[4][2] =
+	{
+		{X86_MOVSB, X86_CMPSB},
+		{X86_MOVSW, X86_CMPSW},
+		{X86_MOVSD, X86_CMPSD},
+		{X86_MOVSQ, X86_CMPSQ}
+	};
+	static const uint8_t operandSizes[2][3] =
+	{
+		{1, 1, 1}, // Column 0, 2
+		{2, 4, 8} // Column 1, 3
+	};
+	const size_t op = (col >> 2) & 1;
+	const uint8_t opSize = operandSizes[col][state->operandSize];
+	static const X86OperandType operands[3][2] =
+	{
+		{X86_SI, X86_DI},
+		{X86_ESI, X86_EDI},
+		{X86_RSI, X86_RDI}
+	};
+	static const X86OperandType segments[2] = {X86_DS, X86_ES};
+
+	state->instr->op = operation[state->operandSize][op];
+	state->instr->operandCount = 2;
+	state->instr->operands[operandOrder[op][0]].size = opSize;
+	state->instr->operands[operandOrder[op][1]].size = opSize;
+
+	state->instr->operands[operandOrder[op][0]].segment = segments[0];
+	state->instr->operands[operandOrder[op][0]].operandType = operands[opSize][0];
+	state->instr->operands[operandOrder[op][1]].segment = segments[1];
+	state->instr->operands[operandOrder[op][1]].operandType = operands[opSize][1];
+
+	return true;
+}
+
+
+static bool DecodeMovImmByte(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint8_t imm;
+	static const X86OperandType dests[8] =
+	{
+		X86_AL, X86_CL, X86_DL, X86_BL,
+		X86_AH, X86_CH, X86_DH, X86_BH
+	};
+
+	if (!state->fetch(state->ctxt, 1, &imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->operandCount = 2;
+	state->instr->operands[0].size = 1;
+	state->instr->operands[0].operandType = dests[col];
+	state->instr->operands[1].size = 1;
+	state->instr->operands[1].immediate = (int64_t)(int32_t)(int16_t)(int8_t)imm;
+
+	return true;
+}
+
+
+static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation op[8] =
+	{
+		X86_ROL, X86_ROR, X86_RCL, X86_RCR, X86_SHL, X86_SHR, X86_SHL, X86_SAR
+	};
 	return false;
 }
 
@@ -778,7 +851,13 @@ static const PrimaryDecoder primaryDecoders[][8] =
 	// Row 10
 	{
 		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
-		// DecodeMovSB, DecodeMovSWDQ, DecodeCmpSB, DecodeCmpSWDQ
+		DecodeMovSCmpS, DecodeMovSCmpS, DecodeMovSCmpS, DecodeMovSCmpS
+	},
+
+	// Row 11
+	{
+		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
+		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte
 	}
 };
 
