@@ -875,7 +875,6 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 	operandTable = modRmOpSizeXref[state->operandSize];
 	if (!DecodeModRm(state, operandTable, operands))
 		return false;
-
 	state->instr->operands[0] = operands[0];
 
 	// Now the destination size
@@ -955,6 +954,8 @@ static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 		}
 		state->instr->operands[0].immediate = imm;
 	}
+
+	return true;
 }
 
 
