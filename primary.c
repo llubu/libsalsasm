@@ -890,6 +890,24 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	static const X86Operation operation[4] = {X86_AAM, X86_AAD, X86_INVALID, X86_XLAT};
+	static const X86OperandType operands[4] = {X86_IMMEDIATE, X86_IMMEDIATE, X86_NONE, X86_NONE};
+	const uint8_t op = ((col >> 2) & 3);
+
+	state->instr->op = operation[op];
+	state->instr->operandCount = 1;
+	state->instr->operands[0].size = 0;
+	state->instr->operands[0].operandType = operands[op];
+
+	if (op & 2)
+	{
+		uint8_t imm;
+		if (!state->fetch(state->ctxt, 1, &imm))
+		{
+			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+			return false;
+		}
+		state->instr->operands[0].immediate = imm;
+	}
 }
 
 
