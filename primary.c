@@ -531,6 +531,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t row, uint8_t col)
 	static const X86Operation ops[3] = {X86_BOUND, X86_BOUND, X86_INVALID};
 	X86Operand operands[2];
 	static const uint8_t order[2] = {1, 0};
+	const PrimaryOpCodeTableOperands* operandTable = modRmOpSizeXref[state->operandSize];
 
 	state->instr->op = ops[state->mode];
 	state->instr->operandCount = 2;
@@ -538,7 +539,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t row, uint8_t col)
 	if (state->instr->op == X86_INVALID)
 		return false;
 
-	if (!DecodeModRm(state, modRmOpSizeXref[state->operandSize], operands))
+	if (!DecodeModRm(state, operandTable, operands))
 		return false;
 
 	// Operands are reversed. Yay Intel!
@@ -882,6 +883,52 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 		state->instr->operands[0].size = 1;
 	else
 		state->instr->operands[0].size = state->operandSize;
+
+	return true;
+}
+
+
+static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation op[2] = {X86_LDS, X86_LES};
+	state->instr->op = op[col & 1];
+
+	// FIXME: Operands!
+	return false;
+}
+
+
+static bool DecodeGroup11(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint8_t opSize;
+	uint64_t imm;
+	const PrimaryOpCodeTableOperands* const operandTable =
+		modRmOpSizeXref[state->operandSize];
+	X86Operand operands[2];
+
+	state->instr->op = X86_MOV;
+
+	// Figure out the operand size
+	if (row & 1)
+		opSize = 1;
+	else if (state->operandSize == 16)
+		opSize = 2;
+	else
+		opSize = 4;
+
+	// Fetch and initialize the destination immediate operand
+	state->instr->operands[1].operandType = X86_IMMEDIATE;
+	state->instr->operands[1].size = opSize;
+	if (!state->fetch(state->ctxt, opSize, (uint8_t*)&imm))
+	{
+		state->instr->flags = X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// Figure out the destination
+	if (!DecodeModRm(state, operandTable, operands))
+		return false;
+	state->instr->operands[0] = operands[0];
 
 	return true;
 }
