@@ -867,7 +867,6 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 	// The destination is either a register or memory depending on the Mod bits
 
 	// Reg field in ModRM actually selects operation for Group2
-	// FIXME: SHR/SHL?
 	reg = ((modRm >> 3) & 7);
 	state->instr->op = op[reg];
 	state->instr->operandCount = 2;
@@ -882,6 +881,24 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 		state->instr->operands[0].size = 1;
 	else
 		state->instr->operands[0].size = state->operandSize;
+
+	return true;
+}
+
+
+static bool DecodeRetNear(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operand operands[2] = 
+	{
+		{X86_IMMEDIATE, {X86_NONE, X86_NONE}, X86_NONE, 2, 0, 0}, // 0xC2
+		{X86_NONE} // 0xC3
+	};
+	static const uint8_t operandCount[2] = {1, 0};
+	const size_t op = row & 1;
+
+	state->instr->operands[0] = operands[op];
+	state->instr->operandCount = operandCount[op];
+	state->instr->op = X86_RETN;
 
 	return true;
 }
@@ -935,25 +952,70 @@ static bool DecodeGroup11(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	static const X86Operation operation[4] = {X86_AAM, X86_AAD, X86_INVALID, X86_XLAT};
-	static const X86OperandType operands[4] = {X86_IMMEDIATE, X86_IMMEDIATE, X86_NONE, X86_NONE};
+	static const X86Operation operation[4] = {X86_AAM, X86_AAD};
+	static const X86OperandType operands[4] = {X86_IMMEDIATE, X86_IMMEDIATE};
 	const uint8_t op = ((col >> 2) & 3);
+	uint8_t imm;
 
 	state->instr->op = operation[op];
 	state->instr->operandCount = 1;
 	state->instr->operands[0].size = 0;
 	state->instr->operands[0].operandType = operands[op];
 
-	if (op & 2)
+	if (!state->fetch(state->ctxt, 1, &imm))
 	{
-		uint8_t imm;
-		if (!state->fetch(state->ctxt, 1, &imm))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
-			return false;
-		}
-		state->instr->operands[0].immediate = imm;
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
 	}
+	state->instr->operands[0].immediate = imm;
+
+	return true;
+}
+
+
+static bool DecodeXlat(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	// FIXME: Arguments, whatever.
+	state->instr->op = X86_XLAT;
+	return false;
+}
+
+
+static bool DecodeLoop(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	return false;
+}
+
+
+static bool DecodeJcxz(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	return false;
+}
+
+
+static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation op[2] = {X86_IN, X86_OUT};
+	static const X86OperandType opTypes[2] = {X86_AL, X86_IMMEDIATE};
+	const size_t direction = ((col >> 2) & 1);
+	uint8_t imm;
+
+	if (!state->fetch(state->ctxt, 1, &imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = op[direction];
+	state->instr->operandCount = 2;
+
+	state->instr->operands[direction].size = 1;
+	state->instr->operands[direction].operandType = opTypes[0];
+
+	// Process the immediate operand
+	state->instr->operands[~direction].size = 1;
+	state->instr->operands[~direction].operandType = opTypes[1];
+	state->instr->operands[~direction].immediate = imm;
 
 	return true;
 }
@@ -1021,16 +1083,34 @@ static const PrimaryDecoder primaryDecoders[][8] =
 		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax
 	},
 
-	// Row 10
+	// Row 0xa
 	{
 		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
 		DecodeMovSCmpS, DecodeMovSCmpS, DecodeMovSCmpS, DecodeMovSCmpS
 	},
 
-	// Row 11
+	// Row 0xb
 	{
 		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
 		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte
+	},
+
+	// Row 0xc
+	{
+		DecodeGroup2, DecodeGroup2, DecodeRetNear, DecodeRetNear,
+		DecodeLoadSegment, DecodeLoadSegment, DecodeGroup11, DecodeGroup11,
+	},
+
+	// Row 0xd
+	{
+		DecodeGroup2, DecodeGroup2, DecodeGroup2, DecodeGroup2,
+		DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat
+	},
+
+	// Row 0xe
+	{
+		DecodeLoop, DecodeLoop, DecodeLoop, DecodeJcxz,
+		DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte
 	}
 };
 
