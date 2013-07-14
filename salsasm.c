@@ -152,7 +152,7 @@ static const char* const X86Mnemonics[] =
 	"vpxor", "vshufpd", "vsqrtpd", "vsqrtsd", "vsubpd", "vsubsd",
 	"vucomisd", "vunpckhpd", "vunpckhps", "vunpcklpd", "vunpcklps",
 	"vxorpd", "vaddps",  "vaddss", "vandps", "vandnps", "vcmppS",
-	"vcmpss", "vcomiss", "vcvtsi2ss", "vcvtss2si", "vcvttss2si", 
+	"vcmpss", "vcomiss", "vcvtsi2ss", "vcvtss2si", "vcvttss2si",
 	"vdivps", "vldmxcsr", "vmaxps", "vmaxss", "vminps", "vminss",
 	"vmovaps", "vmovhps", "vmovlhps", "vmovlps", "vmovmskps",
 	"vmovntps", "vmovss", "vmovups", "vmulps", "vmulss", "vorps",
@@ -178,7 +178,7 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.instr = instr;
 	state.valid = true;
 	state.mode = X86_16BIT;
-	state.operandSize = X86_16BIT;
+	state.operandMode = X86_16BIT;
 	state.instr->flags = X86_FLAG_NONE;
 
 	if (!DecodePrimaryOpcodeMap(&state))

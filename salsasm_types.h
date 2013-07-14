@@ -38,7 +38,7 @@ typedef struct X86DecoderState
 	void* ctxt;
 	bool valid;
 	X86DecoderMode mode;
-	X86DecoderMode operandSize;
+	X86DecoderMode operandMode;
 } X86DecoderState;
 
 #endif /* __SALSASM_TYPES__ */
