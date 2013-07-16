@@ -451,8 +451,9 @@ static bool DecodePushPopSegment(X86DecoderState* const state, uint8_t row, uint
 
 static bool DecodeAscii(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
+	const size_t opCol = (col >> 3) & 1;
 	static const X86Operation ops[2][2] = {{X86_DAA, X86_AAA}, {X86_DAS, X86_AAS}};
-	state->instr->op = ops[row & 1][col & 0x8];
+	state->instr->op = ops[row & 1][opCol];
 	return true;
 }
 
@@ -1074,7 +1075,7 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 		X86_TEST, X86_TEST,  X86_NOT, X86_NEG, X86_MUL, X86_IMUL, X86_DIV, X86_IDIV
 	};
 	const size_t size = row & 1;
-	const PrimaryOpCodeTableOperands* operandTable;
+	const PrimaryOpCodeTableOperands* operandTable = g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
 	X86Operand operands[2];
 	uint8_t modRm;
 	uint8_t reg;
@@ -1110,7 +1111,6 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 
 	// Figure out the destination
-	operandTable = g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
 	if (!DecodeModRm(state, operandTable, operands))
 		return false;
 	state->instr->operands[0] = operands[0];
@@ -1127,7 +1127,73 @@ static bool DecodeSecondaryOpCodeMap(X86DecoderState* state, uint8_t row, uint8_
 
 static bool DecodeIMUL(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	return false;
+	const uint8_t immSizes[2] = {1, g_operandModeSizeXref[state->operandMode]};
+	const size_t immSizeBit = (col >> 1) & 1;
+	const uint8_t immSize = immSizes[immSizeBit];
+	const PrimaryOpCodeTableOperands* operandTable = g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
+	X86Operand operands[2];
+	uint64_t imm = 0;
+
+	// First decode the destination and first source
+	if (!DecodeModRm(state, operandTable, operands))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// Now grab the second source, an immediate
+	if (!state->fetch(state->ctxt, immSize, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = X86_IMUL;
+	state->instr->operandCount = 3;
+	state->instr->operands[2].operandType = X86_IMMEDIATE;
+	state->instr->operands[2].immediate = imm;
+	state->instr->operands[2].size = immSize;
+
+	return true;
+}
+
+
+static bool DecodeInOutString(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation operations[2][3] =
+	{
+		{X86_INSB, X86_INSW, X86_INSD},
+		{X86_OUTSB, X86_OUTSW, X86_OUTSD}
+	};
+	static const X86OperandType memOperands[3][2] =
+	{
+		{X86_SI, X86_DI},
+		{X86_ESI, X86_EDI},
+		{X86_RSI, X86_RDI}
+	};
+	const uint8_t operandSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 4}
+	};
+	const size_t opBit = (col >> 1) & 1;
+	const size_t operandBit = col & 1;
+	size_t operandIdx;
+
+	state->instr->op = operations[opBit][operandBit];
+	state->instr->operandCount = 2;
+
+	operandIdx = opBit;
+	state->instr->operands[operandIdx].operandType = X86_DX;
+	state->instr->operands[operandIdx].size = 2;
+
+	operandIdx = ~opBit;
+	state->instr->operands[operandIdx].operandType = X86_MEM;
+	state->instr->operands[operandIdx].size = operandSizes[operandBit][state->operandMode];
+	state->instr->operands[operandIdx].components[0] = memOperands[state->mode][0];
+	state->instr->operands[operandIdx].components[1] = memOperands[state->mode][1];
+
+	return true;
 }
 
 
@@ -1186,13 +1252,15 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 		DecodePushPopAll, DecodePushPopAll, DecodeBound, DecodeAarplMovSxd,
 		DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 		DecodePushImmediate, DecodeIMUL, DecodePushImmediate, DecodeIMUL,
-		// 
+		DecodeInOutString, DecodeInOutString, DecodeInOutString, DecodeInOutString
 	},
 
 	// Row 7
 	{
 		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
 		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
+		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
+		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional
 	},
 
 	// Row 8
