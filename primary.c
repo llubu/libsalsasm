@@ -305,7 +305,7 @@ static __inline bool ProcessModRmOperands(X86DecoderState* const state,
 		const PrimaryOpCodeTableOperands* const operandTable,
 		X86Operand* const operands, uint8_t modRm)
 {
-	const PrimaryOpCodeTableOperands* operandTableEntry = &operandTable[modRm];
+	const PrimaryOpCodeTableOperands* const operandTableEntry = &operandTable[modRm];
 
 	operands[1] = operandTableEntry->operands[1];
 	if (operandTableEntry->sib)
@@ -403,7 +403,6 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	const uint8_t direction = ((col & 2) >> 1);
 	const uint8_t operandForm = ((col & 4) >> 2); // IMM or MODRM
 	const uint8_t operandSize = (col & 1); // 1byte or default operand size
-	const PrimaryOpCodeTableOperands* operandTable;
 	const size_t operation = (col & 7);
 	static const X86Operation primaryOpCodeTableArithmetic[] =
 	{
@@ -414,11 +413,11 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	{
 		g_primaryArithmeticImmediateOperands, g_modRmOperands
 	};
+	const PrimaryOpCodeTableOperands* const operandTable = opXref[operandForm][operandSize];
 
 	state->instr->op = primaryOpCodeTableArithmetic[operation];
 	state->instr->operandCount = 2;
 
-	operandTable = opXref[operandForm][operandSize];
 	if (!opDecoders[operandForm](state, operandTable, operands))
 		return false;
 
@@ -533,7 +532,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t row, uint8_t col)
 	static const X86Operation ops[3] = {X86_BOUND, X86_BOUND, X86_INVALID};
 	X86Operand operands[2];
 	static const uint8_t order[2] = {1, 0};
-	const PrimaryOpCodeTableOperands* operandTable
+	const PrimaryOpCodeTableOperands* const operandTable
 		= g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
 
 	state->instr->op = ops[state->mode];
@@ -825,7 +824,7 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t reg;
 	X86Operand operands[2];
 	const size_t size = row & 1;
-	const PrimaryOpCodeTableOperands* operandTable = g_modRmOpSizeXref[size];
+	const PrimaryOpCodeTableOperands* const operandTable = g_modRmOpSizeXref[size];
 	static const X86Operation op[8] =
 	{
 		X86_ROL, X86_ROR, X86_RCL, X86_RCR, X86_SHL, X86_SHR, X86_SHL, X86_SAR
@@ -911,14 +910,13 @@ static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
 static bool DecodeGroup11(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	const uint8_t sizeBit = row & 1;
-	uint64_t imm;
-	const PrimaryOpCodeTableOperands* operandTable;
-	X86Operand operands[2];
 	static const uint8_t operandSizes[2][3] = {{1, 1, 1}, {2, 4, 8}};
 	const uint8_t operandSize = operandSizes[sizeBit][state->operandMode];
+	const PrimaryOpCodeTableOperands* const operandTable = g_modRmOpSizeXref[operandSize];
+	uint64_t imm;
+	X86Operand operands[2];
 
 	state->instr->op = X86_MOV;
-	operandTable = g_modRmOpSizeXref[operandSize];
 
 	// Fetch and initialize the destination immediate operand
 	state->instr->operands[1].operandType = X86_IMMEDIATE;
@@ -1075,7 +1073,8 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 		X86_TEST, X86_TEST,  X86_NOT, X86_NEG, X86_MUL, X86_IMUL, X86_DIV, X86_IDIV
 	};
 	const size_t size = row & 1;
-	const PrimaryOpCodeTableOperands* operandTable = g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
+	const PrimaryOpCodeTableOperands* const operandTable
+		= g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
 	X86Operand operands[2];
 	uint8_t modRm;
 	uint8_t reg;
@@ -1130,7 +1129,8 @@ static bool DecodeIMUL(X86DecoderState* state, uint8_t row, uint8_t col)
 	const uint8_t immSizes[2] = {1, g_operandModeSizeXref[state->operandMode]};
 	const size_t immSizeBit = (col >> 1) & 1;
 	const uint8_t immSize = immSizes[immSizeBit];
-	const PrimaryOpCodeTableOperands* operandTable = g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
+	const PrimaryOpCodeTableOperands* const operandTable
+		= g_modRmOpSizeXref[g_operandModeSizeXref[state->operandMode]];
 	X86Operand operands[2];
 	uint64_t imm = 0;
 
