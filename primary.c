@@ -1274,7 +1274,7 @@ static bool DecodeLea(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operands[0] = operands[0];
 	state->instr->operands[1] = operands[1];
 
-	// Write out the operand
+	// Write out the rest
 	state->instr->op = X86_LEA;
 	state->instr->operandCount = 2;
 
@@ -1311,6 +1311,67 @@ static bool DecodeGroup1a(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 	state->instr->operands[0] = operands[0];
 
+	return true;
+}
+
+
+static bool DecodeConvertSize(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation operations[2][3] =
+	{
+		{X86_CBW, X86_CWDE, X86_CDQE},
+		{X86_CWD, X86_CDQ, X86_CQO}
+	};
+	const uint8_t op = col & 1;
+
+	// Current operand size defines the mnemonic
+	state->instr->op = operations[op][state->operandMode];
+
+	return true;
+}
+
+
+static bool DecodeCallFar(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	const uint8_t operandSize = g_operandModeSizeXref[state->operandMode];
+	union
+	{
+		uint8_t imm[10];
+		struct
+		{
+			uint16_t segment;
+			uint64_t offset;
+		};
+	} farPtr;
+	uint8_t imm[10] = {0};
+	const size_t operandBytes = operandSize + 2;
+
+	if (!state->fetch(state->ctxt, operandBytes, farPtr.imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = X86_CALLF;
+	state->instr->operandCount = 2;
+
+	// Store the segment first
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].size = 2;
+	state->instr->operands[0].immediate = farPtr.segment;
+
+	// Now the offset
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].size = operandSize;
+	state->instr->operands[0].immediate = farPtr.offset;
+
+	return true;
+}
+
+
+static bool DecodeFWait(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	state->instr->op = X86_FWAIT;
 	return true;
 }
 
@@ -1392,7 +1453,8 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 	// Row 9
 	{
 		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
-		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax
+		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
+		DecodeConvertSize, DecodeConvertSize, DecodeCallFar, DecodeFWait
 	},
 
 	// Row 0xa
