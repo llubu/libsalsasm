@@ -321,6 +321,8 @@ static __inline bool ProcessModRmOperands(X86DecoderState* const state,
 	{
 		uint64_t displacement;
 		int64_t sign;
+
+		displacement = 0;
 		if (!state->fetch(state->ctxt, operandTableEntry->dispBytes, (uint8_t*)&displacement))
 		{
 			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
@@ -361,6 +363,7 @@ static bool DecodeImmediate(X86DecoderState* const state,
 	operands[1] = operandTable->operands[1];
 
 	// Fetch the immediate value
+	imm = 0;
 	if (!state->fetch(state->ctxt, operandTable->dispBytes, (uint8_t*)&imm))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
@@ -583,6 +586,7 @@ static bool DecodePushImmediate(X86DecoderState* state, uint8_t row, uint8_t col
 	operandBytes = g_operandModeSizeXref[operandModes[state->mode]];
 
 	// Fetch the immediate value
+	imm = 0;
 	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
@@ -609,12 +613,12 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	const PrimaryOpCodeTableOperands* const operands = g_modRmOperands[state->operandMode];
 	uint64_t imm;
 	int64_t sign;
-	uint8_t operandBytes;
 	static const uint8_t operandSizes[2][3] =
 	{
 		{1, 1, 1},
 		{2, 4, 8}
 	};
+	const uint8_t operandBytes = operandSizes[width][state->operandMode];
 
 	// Fetch the modrm byte
 	if (!state->fetch(state->ctxt, 1, &modRm))
@@ -646,6 +650,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	{
 		uint64_t displacement;
 		int64_t sign;
+
+		displacement = 0;
 		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
 		{
 			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
@@ -657,8 +663,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 		state->instr->operands[0].immediate = (int64_t)displacement | ((sign >> ((8 - operands->dispBytes) << 3)));
 	}
 
-	operandBytes = operandSizes[width][state->operandMode];
-	if (!state->fetch(state->ctxt, state->instr->operands[1].size, (uint8_t*)&imm))
+	imm = 0;
+	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
@@ -724,11 +730,12 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 		{1, 1, 1}, // Column 0, 2
 		{2, 4, 8} // Column 1, 3
 	};
+	const uint8_t sizeBit = col & 1;
 	static const X86OperandType rax[5] = {X86_NONE, X86_AL, X86_AX, X86_EAX, X86_RAX};
-	const uint8_t opSize = operandSizes[col][state->operandMode];
+	const uint8_t operandSize = operandSizes[sizeBit][state->operandMode];
 
-	if (!state->fetch(state->ctxt, operandSizes[col & 1][state->operandMode],
-		(uint8_t*)&offset))
+	offset = 0;
+	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&offset))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
@@ -736,12 +743,12 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
-	state->instr->operands[g_operandOrder[col][0]].size = opSize;
-	state->instr->operands[g_operandOrder[col][1]].size = opSize;
+	state->instr->operands[g_operandOrder[sizeBit][0]].size = operandSize;
+	state->instr->operands[g_operandOrder[sizeBit][1]].size = operandSize;
 
-	state->instr->operands[g_operandOrder[col][0]].operandType = rax[opSize];
-	state->instr->operands[g_operandOrder[col][1]].operandType = X86_MEM;
-	state->instr->operands[g_operandOrder[col][1]].immediate = offset;
+	state->instr->operands[g_operandOrder[sizeBit][0]].operandType = rax[operandSize];
+	state->instr->operands[g_operandOrder[sizeBit][1]].operandType = X86_MEM;
+	state->instr->operands[g_operandOrder[sizeBit][1]].immediate = offset;
 
 	return true;
 }
@@ -913,6 +920,7 @@ static bool DecodeGroup11(X86DecoderState* state, uint8_t row, uint8_t col)
 	// Fetch and initialize the destination immediate operand
 	state->instr->operands[1].operandType = X86_IMMEDIATE;
 	state->instr->operands[1].size = operandSize;
+	imm = 0;
 	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&imm))
 	{
 		state->instr->flags = X86_FLAG_INSUFFICIENT_LENGTH;
@@ -953,9 +961,8 @@ static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeXlat(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	// FIXME: Arguments, whatever.
 	state->instr->op = X86_XLAT;
-	return false;
+	return true;
 }
 
 
@@ -1124,7 +1131,7 @@ static bool DecodeIMUL(X86DecoderState* state, uint8_t row, uint8_t col)
 	const PrimaryOpCodeTableOperands* const operandTable
 		= g_modRmOperands[g_operandModeSizeXref[state->operandMode]];
 	X86Operand operands[2];
-	uint64_t imm = 0;
+	uint64_t imm;
 
 	// First decode the destination and first source
 	if (!DecodeModRm(state, operandTable, operands))
@@ -1134,6 +1141,7 @@ static bool DecodeIMUL(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 
 	// Now grab the second source, an immediate
+	imm = 0;
 	if (!state->fetch(state->ctxt, immSize, (uint8_t*)&imm))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
@@ -1198,6 +1206,7 @@ static bool DecodeMovGpr(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->op = X86_MOV;
 	if (!DecodeModRm(state, operandTable, operands))
 		return false;
+
 	state->instr->operandCount = 2;
 	state->instr->operands[0] = operands[0];
 	state->instr->operands[1] = operands[1];
@@ -1336,15 +1345,24 @@ static bool DecodeCallFar(X86DecoderState* state, uint8_t row, uint8_t col)
 	const uint8_t operandSize = g_operandModeSizeXref[state->operandMode];
 	union
 	{
-		uint8_t imm[10];
+		uint8_t imm[6];
 		struct
 		{
 			uint16_t segment;
-			uint64_t offset;
+			union
+			{
+				uint16_t w;
+				uint32_t d;
+			} offset;
 		};
-	} farPtr;
-	uint8_t imm[10] = {0};
+	} farPtr = {0};
 	const size_t operandBytes = operandSize + 2;
+
+	if (state->operandMode == X86_64BIT)
+	{
+		// This form is invalid in 64bit mode
+		return false;
+	}
 
 	if (!state->fetch(state->ctxt, operandBytes, farPtr.imm))
 	{
@@ -1363,7 +1381,11 @@ static bool DecodeCallFar(X86DecoderState* state, uint8_t row, uint8_t col)
 	// Now the offset
 	state->instr->operands[0].operandType = X86_IMMEDIATE;
 	state->instr->operands[0].size = operandSize;
-	state->instr->operands[0].immediate = farPtr.offset;
+
+	if (operandSize == 2)
+		state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)farPtr.offset.w;
+	else
+		state->instr->operands[0].immediate = (int64_t)(int32_t)farPtr.offset.d;
 
 	return true;
 }
@@ -1373,6 +1395,42 @@ static bool DecodeFWait(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	state->instr->op = X86_FWAIT;
 	return true;
+}
+
+
+static bool DecodeTestImm(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint64_t imm;
+	const size_t sizeBit = row & 1;
+	const uint8_t operandSizes[2] = {1, g_operandModeSizeXref[state->operandMode]};
+	static const X86OperandType dests[4] = {X86_AL, X86_AX, X86_EAX, X86_RAX};
+	const uint8_t operandSize = operandSizes[sizeBit];
+
+	state->instr->op = X86_TEST;
+
+	imm = 0;
+	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->operandCount = 2;
+
+	state->instr->operands[1].operandType = X86_IMMEDIATE;
+	state->instr->operands[1].size = operandSize;
+	state->instr->operands[1].immediate = imm;
+
+	state->instr->operands[0].operandType = dests[operandSize];
+	state->instr->operands[0].size = operandSize;
+
+	return true;
+}
+
+
+static bool DecodeString(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	return false;
 }
 
 
@@ -1461,6 +1519,7 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 	{
 		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
 		DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString,
+		DecodeTestImm, DecodeTestImm,
 	},
 
 	// Row 0xb
