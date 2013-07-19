@@ -1637,7 +1637,12 @@ static bool DecodeInto(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	(void)row;
 	(void)col;
+
+	if (state->mode == X86_64BIT)
+		return false;
+
 	state->instr->op = X86_INTO;
+
 	return true;
 }
 
