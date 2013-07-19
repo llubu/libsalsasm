@@ -914,7 +914,7 @@ static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 
 	// A GPR source is invalid here.
-	if ((modRm >> 3) & 3)
+	if ((modRm >> 6) & 3)
 		return false;
 
 	// Figure out the source
