@@ -898,11 +898,39 @@ static bool DecodeRetNear(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	static const X86Operation op[2] = {X86_LDS, X86_LES};
-	state->instr->op = op[col & 1];
+	const uint8_t size = g_operandModeSizeXref[state->mode];
+	static const X86Operation operations[2] = {X86_LDS, X86_LES};
+	static const X86OperandType dests[2] = {X86_DS, X86_ES};
+	const PrimaryOpCodeTableOperands* const operandTable = g_modRmOperands[size];
+	const uint8_t op = col & 1;
+	X86Operand operands[2];
+	uint8_t modRm;
 
-	// FIXME: Operands!
-	return false;
+	// First grab the ModRM byte
+	if (!state->fetch(state->ctxt, 1, &modRm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// A GPR source is invalid here.
+	if ((modRm >> 3) & 3)
+		return false;
+
+	// Figure out the source
+	if (!ProcessModRmOperands(state, operandTable, operands, modRm))
+		return false;
+	state->instr->operands[1] = operands[1];
+	state->instr->operands[1].size = size + 2;
+
+	// Now the destination
+	state->instr->operands[0].size = size + 2;
+	state->instr->operands[0].operandType = dests[op];
+
+	state->instr->operandCount = 2;
+	state->instr->op = operations[op];
+
+	return true;
 }
 
 
@@ -961,7 +989,23 @@ static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeXlat(X86DecoderState* state, uint8_t row, uint8_t col)
 {
+	static const X86OperandType sources[3] = {X86_BX, X86_EBX, X86_RBX};
+	const X86OperandType source = sources[state->mode];
+
 	state->instr->op = X86_XLAT;
+	state->instr->operandCount = 2;
+
+	// Store in AL
+	state->instr->operands[0].operandType = X86_AL;
+	state->instr->operands[0].size = 1;
+
+	// Value fetched from memory
+	state->instr->operands[1].operandType = X86_MEM;
+	state->instr->operands[1].size = 1;
+	state->instr->operands[1].segment = X86_DS;
+	state->instr->operands[1].components[0] = X86_AL;
+	state->instr->operands[1].components[1] = source;
+
 	return true;
 }
 
@@ -1430,7 +1474,61 @@ static bool DecodeTestImm(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeString(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	return false;
+	static const X86Operation operations[3][4] =
+	{
+		{X86_STOSB, X86_STOSW, X86_STOSD, X86_STOSQ},
+		{X86_LODSB, X86_LODSW, X86_LODSD, X86_LODSQ},
+		{X86_SCASB, X86_SCASW, X86_SCASD, X86_SCASQ}
+	};
+	static const X86OperandType sources[3][4] =
+	{
+		{X86_AL, X86_AX, X86_EAX, X86_RAX},
+		{X86_MEM, X86_MEM, X86_MEM, X86_MEM},
+		{X86_MEM, X86_MEM, X86_MEM, X86_MEM}
+	};
+	static const X86OperandType sourceComponents[3][3] =
+	{
+		{X86_NONE, X86_NONE, X86_NONE},
+		{X86_SI, X86_ESI, X86_RSI},
+		{X86_DI, X86_EDI, X86_RDI}
+	};
+	static const X86OperandType dests[3][4] =
+	{
+		{X86_MEM, X86_MEM, X86_MEM, X86_MEM},
+		{X86_AL, X86_AX, X86_EAX, X86_RAX},
+		{X86_AL, X86_AX, X86_EAX, X86_RAX}
+	};
+	static const X86OperandType destComponents[3][3] =
+	{
+		{X86_DI, X86_EDI, X86_RDI},
+		{X86_NONE, X86_NONE, X86_NONE},
+		{X86_NONE, X86_NONE, X86_NONE}
+	};
+	static const X86OperandType segments[3][2] =
+	{
+		{X86_ES, X86_NONE},
+		{X86_DS, X86_NONE},
+		{X86_NONE, X86_ES}
+	};
+	const uint8_t operandSizes[2] = {1, g_operandModeSizeXref[state->mode]};
+	const uint8_t sizeBit = col & 1;
+	const uint8_t operationBits = (col >> 1) & 7;
+	const uint8_t operandSize = operandSizes[sizeBit];
+
+	state->instr->op = operations[operationBits][operandSize];
+	state->instr->operandCount = 2;
+
+	state->instr->operands[0].operandType = dests[operationBits][operandSize];
+	state->instr->operands[0].segment = segments[operationBits][0];
+	state->instr->operands[0].size = operandSize;
+	state->instr->operands[0].components[0] = destComponents[operationBits][state->mode];
+
+	state->instr->operands[1].operandType = sources[operationBits][operandSize];
+	state->instr->operands[1].segment = segments[operationBits][1];
+	state->instr->operands[1].size = operandSize;
+	state->instr->operands[1].components[1] = sourceComponents[operationBits][state->mode];
+
+	return true;
 }
 
 
@@ -1519,7 +1617,7 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 	{
 		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
 		DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString,
-		DecodeTestImm, DecodeTestImm,
+		DecodeTestImm, DecodeTestImm, DecodeString, DecodeString, DecodeString, DecodeString
 	},
 
 	// Row 0xb
