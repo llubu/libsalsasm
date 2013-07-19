@@ -1532,6 +1532,126 @@ static bool DecodeString(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
+static bool DecodeMovImm(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	return false;
+}
+
+
+static bool DecodeEnter(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	union
+	{
+		uint8_t imm[3];
+		struct
+		{
+			uint16_t size;
+			uint8_t level;
+		};
+	} args;
+
+	if (!state->fetch(state->ctxt, 3, args.imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = X86_ENTER;
+
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)args.size;
+	state->instr->operands[0].size = 2;
+
+	state->instr->operands[1].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)(int8_t)args.level;
+	state->instr->operands[1].size = 1;
+
+	return true;
+}
+
+
+static bool DecodeLeave(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	(void)row;
+	(void)col;
+	state->instr->op = X86_LEAVE;
+	return true;
+}
+
+
+static bool DecodeReturnFar(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint16_t imm;
+
+	state->instr->op = X86_RETF;
+	if (col & 1)
+		return true;
+
+	if (!state->fetch(state->ctxt, 2, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].size = 2;
+	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)imm;
+
+	return true;
+}
+
+
+static bool DecodeInt3(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	(void)row;
+	(void)col;
+	state->instr->op = X86_INT3;
+	return true;
+}
+
+
+static bool DecodeInt(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint8_t imm;
+	(void)row;
+	(void)col;
+
+	if (!state->fetch(state->ctxt, 1, &imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)(int8_t)imm;
+
+	state->instr->op = X86_INT;
+
+	return true;
+}
+
+
+static bool DecodeInto(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	(void)row;
+	(void)col;
+	state->instr->op = X86_INTO;
+	return true;
+}
+
+
+static bool DecodeIRet(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation operations[3] = {X86_IRET, X86_IRETD, X86_IRETQ};
+	(void)row;
+	(void)col;
+	state->instr->op = operations[state->mode];
+	return true;
+}
+
+
 static const PrimaryDecoder primaryDecoders[16][16] =
 {
 	// Row 0
@@ -1623,13 +1743,17 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 	// Row 0xb
 	{
 		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
-		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte
+		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
+		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
+		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm
 	},
 
 	// Row 0xc
 	{
 		DecodeGroup2, DecodeGroup2, DecodeRetNear, DecodeRetNear,
 		DecodeLoadSegment, DecodeLoadSegment, DecodeGroup11, DecodeGroup11,
+		DecodeEnter, DecodeLeave, DecodeReturnFar, DecodeReturnFar,
+		DecodeInt3, DecodeInt, DecodeInto, DecodeIRet
 	},
 
 	// Row 0xd
