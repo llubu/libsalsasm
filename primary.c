@@ -795,11 +795,15 @@ static bool DecodeMovCmpString(X86DecoderState* state, uint8_t row, uint8_t col)
 static bool DecodeMovImmByte(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	uint8_t imm;
-	static const X86OperandType dests[8] =
+	static const X86OperandType dests[16] =
 	{
 		X86_AL, X86_CL, X86_DL, X86_BL,
-		X86_AH, X86_CH, X86_DH, X86_BH
+		X86_AH, X86_CH, X86_DH, X86_BH,
+		X86_R8B, X86_R9B, X86_R10B, X86_R11B,
+		X86_R12B, X86_R13B, X86_R14B, X86_R15B
 	};
+
+	// TODO: REX
 
 	if (!state->fetch(state->ctxt, 1, &imm))
 	{
@@ -1534,7 +1538,50 @@ static bool DecodeString(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeMovImm(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	return false;
+	const uint8_t operandBytes = g_operandModeSizeXref[state->mode];
+	static const X86OperandType dests[3][16] =
+	{
+		{
+			X86_AX, X86_CX, X86_DX, X86_BX,
+			X86_SP, X86_BP, X86_SI, X86_DI,
+			X86_R8B, X86_R9W, X86_R10W, X86_R11W,
+			X86_R12W, X86_R13W, X86_R14W, X86_R15W
+		},
+		{
+			X86_EAX, X86_ECX, X86_EDX, X86_EBX,
+			X86_ESP, X86_EBP, X86_ESI, X86_EDI,
+			X86_R8D, X86_R9D, X86_R10D, X86_R11D,
+			X86_R12D, X86_R13D, X86_R14D, X86_R15D
+		},
+		{
+			X86_RAX, X86_RCX, X86_RDX, X86_RBX,
+			X86_RSP, X86_RBP, X86_RSI, X86_RDI,
+			X86_R8, X86_R9, X86_R10, X86_R11,
+			X86_R12, X86_R13, X86_R14, X86_R15
+		}
+	};
+	uint64_t imm;
+
+	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// TODO: REX
+
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
+
+	// FIXME: Should probably sign extend the immediate.
+	state->instr->operands[1].immediate = imm;
+	state->instr->operands[1].operandType == X86_IMMEDIATE;
+	state->instr->operands[1].size = operandBytes;
+
+	state->instr->operands[0].size = operandBytes;
+	state->instr->operands[0].operandType = dests[state->operandMode][col];
+
+	return true;
 }
 
 
