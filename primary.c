@@ -1657,6 +1657,152 @@ static bool DecodeIRet(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
+static bool DecodeCallJmpRelative(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const uint8_t operandSizes[3] = {2, 4, 4};
+	const uint8_t operandBytes = operandSizes[state->operandMode];
+	static const X86Operation operations[2] = {X86_CALLN, X86_JMP};
+	const uint8_t operation = row & 1;
+	uint64_t imm;
+
+	(void)row;
+	(void)col;
+
+	imm = 0;
+	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// FIXME: The immediate should likely be sign extended.
+	state->instr->op = operations[operation];
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = imm;
+	state->instr->operands[0].size = operandBytes;
+
+	return true;
+}
+
+
+static bool DecodeJmpRelative(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const uint8_t operandSizes[3] = {2, 4, 4};
+	const uint8_t operandBytes = operandSizes[state->operandMode];
+	uint64_t imm;
+
+	(void)row;
+	(void)col;
+
+	imm = 0;
+	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	// FIXME: The immediate should likely be sign extended.
+	state->instr->op = X86_JMP;
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = imm;
+	state->instr->operands[0].size = operandBytes;
+
+	return true;
+}
+
+
+static bool DecodeJmpFar(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	const uint8_t operandBytes = g_operandModeSizeXref[state->operandMode] + 2;
+	union
+	{
+		uint8_t bytes[6];
+		struct
+		{
+			uint16_t selector;
+			union
+			{
+				uint16_t w;
+				uint32_t d;
+			} offset;
+		};
+	} operands = {0};
+
+	if (!state->fetch(state->ctxt, operandBytes, operands.bytes))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = X86_JMP;
+	state->instr->operandCount = 2;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = operands.selector;
+	state->instr->operands[1].operandType = X86_IMMEDIATE;
+
+	if (state->operandMode == X86_16BIT)
+		state->instr->operands[1].immediate = operands.offset.w;
+	else
+		state->instr->operands[1].immediate = operands.offset.w;
+
+	return true;
+}
+
+
+static bool DecodeJmpRelativeByte(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	uint8_t imm;
+
+	if (!state->fetch(state->ctxt, 1, &imm))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+
+	state->instr->op = X86_JMP;
+	state->instr->operandCount = 1;
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
+	state->instr->operands[0].immediate = imm;
+	state->instr->operands[0].size = 1;
+
+	return true;
+}
+
+
+static bool DecodeInOutDx(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	const uint8_t operandSizes[2] = {1, g_operandModeSizeXref[state->mode]};
+	static const X86Operation operations[2] = {X86_IN, X86_OUT};
+	static const X86OperandType operands[4] = {X86_AL, X86_AX, X86_EAX, X86_RAX};
+	const uint8_t operation = (col >> 2) & 1;
+	const uint8_t operandSize = operandSizes[operation];
+	uint8_t direction;
+
+	state->instr->op = operations[operation];
+	state->instr->operandCount = 2;
+
+	direction = ~operation;
+	state->instr->operands[direction].operandType = X86_DX;
+	state->instr->operands[direction].size = 2;
+
+	direction = operation;
+	state->instr->operands[direction].size =  operandSize;
+	state->instr->operands[direction].operandType = operands[operandSize];
+
+	return true;
+}
+
+
+static bool DecodeSetClearFlag(X86DecoderState* state, uint8_t row, uint8_t col)
+{
+	static const X86Operation operations[6] = {X86_CLC, X86_STC, X86_CLI, X86_STI, X86_CLD, X86_STD};
+	state->instr->op = operations[col];
+	return true;
+}
+
+
 static const PrimaryDecoder primaryDecoders[16][16] =
 {
 	// Row 0
@@ -1764,19 +1910,24 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 	// Row 0xd
 	{
 		DecodeGroup2, DecodeGroup2, DecodeGroup2, DecodeGroup2,
-		DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat
+		DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat,
 	},
 
 	// Row 0xe
 	{
 		DecodeLoop, DecodeLoop, DecodeLoop, DecodeJcxz,
-		DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte
+		DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte,
+		DecodeCallJmpRelative, DecodeCallJmpRelative, DecodeJmpFar, DecodeJmpRelativeByte,
+		DecodeInOutDx, DecodeInOutDx, DecodeInOutDx, DecodeInOutDx
+
 	},
 
 	// Row 0xf
 	{
 		DecodeInvalid, DecodeINT1, DecodeInvalid, DecodeInvalid,
-		DecodeHLT, DecodeCMC, DecodeGroup3, DecodeGroup3
+		DecodeHLT, DecodeCMC, DecodeGroup3, DecodeGroup3,
+		DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag,
+		DecodeSetClearFlag, DecodeSetClearFlag,
 	}
 };
 
