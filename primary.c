@@ -1118,6 +1118,7 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 	else
 	{
+		const uint8_t rm = modRm & 7;
 		static const X86Operation operations[8][6] =
 		{
 			{X86_FNOP, X86_INVALID, X86_FCHS, X86_FLD1, X86_F2XM1, X86_FPREM}, // c0
@@ -1130,6 +1131,7 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 			{X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID, X86_FINCSTP, X86_FCOS} // c7
 		};
 
+		state->instr->op = operations[rm][reg];
 		state->instr->operandCount = 1;
 	}
 
