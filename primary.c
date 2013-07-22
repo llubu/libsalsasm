@@ -412,14 +412,15 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	const uint8_t operandForm = ((col & 4) >> 2); // IMM or MODRM
 	const uint8_t operandSize = (col & 1); // 1byte or default operand size
 	const size_t operation = (col & 7);
+	size_t operand;
 	static const X86Operation primaryOpCodeTableArithmetic[] =
 	{
 		X86_ADD, X86_ADC, X86_AND, X86_XOR,
 		X86_OR, X86_SBB, X86_SUB, X86_CMP
 	};
-	const PrimaryOpCodeTableOperands* const* const opXref[2] =
+	static const PrimaryOpCodeTableOperands* const* const opXref[2] =
 	{
-		g_primaryArithmeticImmediateOperands, g_modRmOperands
+		g_modRmOperands, g_primaryArithmeticImmediateOperands
 	};
 	const PrimaryOpCodeTableOperands* const operandTable = opXref[operandForm][operandSize];
 
@@ -429,8 +430,10 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	if (!opDecoders[operandForm](state, operandTable, operands))
 		return false;
 
-	state->instr->operands[direction] = operands[0];
-	state->instr->operands[~direction] = operands[1];
+	operand = direction;
+	state->instr->operands[operand] = operands[0];
+	operand = ((~direction) & 1);
+	state->instr->operands[operand] = operands[1];
 
 	return true;
 }
@@ -569,6 +572,7 @@ static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t row, uint8_t
 	X86Operand operands[2] = {0};
 	const uint8_t opSize[3] = {2, 2, g_decoderModeSizeXref[state->operandMode]};
 	static const uint8_t order[3] = {0, 0, 1};
+	size_t operand;
 
 	state->instr->op = ops[state->mode];
 	state->instr->operandCount = 2;
@@ -576,8 +580,10 @@ static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t row, uint8_t
 	if (!DecodeModRm(state, g_modRmOperands[opSize[state->mode]], operands))
 		return false;
 
-	state->instr->operands[0] = operands[order[state->mode]];
-	state->instr->operands[1] = operands[~order[state->mode]];
+	operand = order[state->mode];
+	state->instr->operands[0] = operands[operand];
+	operand = ((~operand) & 1);
+	state->instr->operands[1] = operands[operand];
 
 	return true;
 }
@@ -721,8 +727,9 @@ static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
 	};
 	static const uint8_t operandCount[8] = {0, 2, 2, 2, 2, 2, 2, 2};
 	static const X86OperandType dests[3] = {X86_AX, X86_EAX, X86_RAX};
+	const size_t operation = ((~col) & 1);
 
-	state->instr->op = ops[~col];
+	state->instr->op = ops[operation];
 	state->instr->operandCount = operandCount[col];
 	state->instr->operands[0].operandType = dests[state->operandMode];
 	state->instr->operands[0].size = g_decoderModeSizeXref[state->operandMode];
@@ -1509,7 +1516,7 @@ static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
 	static const X86OperandType opTypes[2] = {X86_AL, X86_IMMEDIATE};
 	const size_t direction = ((col >> 2) & 1);
 	uint8_t imm;
-	size_t operandIdx;
+	size_t operand;
 
 	if (!state->fetch(state->ctxt, 1, &imm))
 	{
@@ -1517,18 +1524,18 @@ static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 	}
 
-	operandIdx = direction;
-	state->instr->op = op[operandIdx];
+	operand = direction;
+	state->instr->op = op[operand];
 	state->instr->operandCount = 2;
 
-	state->instr->operands[operandIdx].size = 1;
-	state->instr->operands[operandIdx].operandType = opTypes[0];
+	state->instr->operands[operand].size = 1;
+	state->instr->operands[operand].operandType = opTypes[0];
 
 	// Process the immediate operand
-	operandIdx = ~direction;
-	state->instr->operands[operandIdx].size = 1;
-	state->instr->operands[operandIdx].operandType = opTypes[1];
-	state->instr->operands[operandIdx].immediate = imm;
+	operand = ((~direction) & 1);
+	state->instr->operands[operand].size = 1;
+	state->instr->operands[operand].operandType = opTypes[1];
+	state->instr->operands[operand].immediate = imm;
 
 	return true;
 }
@@ -1668,20 +1675,20 @@ static bool DecodeInOutString(X86DecoderState* state, uint8_t row, uint8_t col)
 	};
 	const size_t opBit = (col >> 1) & 1;
 	const size_t operandBit = col & 1;
-	size_t operandIdx;
+	size_t operand;
 
 	state->instr->op = operations[opBit][operandBit];
 	state->instr->operandCount = 2;
 
-	operandIdx = opBit;
-	state->instr->operands[operandIdx].operandType = X86_DX;
-	state->instr->operands[operandIdx].size = 2;
+	operand = opBit;
+	state->instr->operands[operand].operandType = X86_DX;
+	state->instr->operands[operand].size = 2;
 
-	operandIdx = ~opBit;
-	state->instr->operands[operandIdx].operandType = X86_MEM;
-	state->instr->operands[operandIdx].size = operandSizes[operandBit][state->operandMode];
-	state->instr->operands[operandIdx].components[0] = memOperands[state->mode][0];
-	state->instr->operands[operandIdx].components[1] = memOperands[state->mode][1];
+	operand = ((~opBit) & 1);
+	state->instr->operands[operand].operandType = X86_MEM;
+	state->instr->operands[operand].size = operandSizes[operandBit][state->operandMode];
+	state->instr->operands[operand].components[0] = memOperands[state->mode][0];
+	state->instr->operands[operand].components[1] = memOperands[state->mode][1];
 
 	return true;
 }
@@ -1741,7 +1748,7 @@ static bool DecodeMovSeg(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operands[operand] = operands[0];
 
 	// Now process the second operand.
-	operand = ~direction;
+	operand = ((~direction) & 1);
 	state->instr->operands[operand].size = 2;
 	state->instr->operands[operand].operandType = segments[segment];
 
@@ -2272,7 +2279,7 @@ static bool DecodeInOutDx(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->op = operations[operation];
 	state->instr->operandCount = 2;
 
-	direction = ~operation;
+	direction = ((~operation) & 1);
 	state->instr->operands[direction].operandType = X86_DX;
 	state->instr->operands[direction].size = 2;
 
