@@ -21,6 +21,7 @@
 */
 #include "salsasm_types.h"
 #include "primary.h"
+#include <memory.h>
 
 static const char* const X86Mnemonics[] =
 {
@@ -171,7 +172,7 @@ static const char* const X86Mnemonics[] =
 
 bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	X86DecoderState state;
+	X86DecoderState state = {0};
 
 	state.fetch = fetch;
 	state.ctxt = ctxt;
@@ -179,7 +180,8 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.valid = true;
 	state.mode = X86_16BIT;
 	state.operandMode = X86_16BIT;
-	state.instr->flags = X86_FLAG_NONE;
+
+	memset(state.instr, 0, sizeof(X86Instruction));
 
 	if (!DecodePrimaryOpcodeMap(&state))
 		return false;
@@ -190,7 +192,7 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 
 bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	X86DecoderState state;
+	X86DecoderState state = {0};
 
 	state.fetch = fetch;
 	state.ctxt = ctxt;
@@ -199,6 +201,8 @@ bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.mode = X86_32BIT;
 	state.operandMode = X86_32BIT;
 	state.instr->flags = X86_FLAG_NONE;
+
+	memset(state.instr, 0, sizeof(X86Instruction));
 
 	if (!DecodePrimaryOpcodeMap(&state))
 		return false;

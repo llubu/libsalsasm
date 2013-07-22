@@ -306,6 +306,18 @@ static const X86OperandType g_fpSources[8] =
 };
 
 
+static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* result)
+{
+	if (!state->fetch(state->ctxt, len, result))
+	{
+		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		return false;
+	}
+	state->instr->length += len;
+	return true;
+}
+
+
 static __inline bool ProcessModRmOperands(X86DecoderState* const state,
 		const PrimaryOpCodeTableOperands* const operandTable,
 		X86Operand* const operands, uint8_t modRm)
@@ -316,11 +328,8 @@ static __inline bool ProcessModRmOperands(X86DecoderState* const state,
 	if (operandTableEntry->sib)
 	{
 		uint8_t sib;
-		if (!state->fetch(state->ctxt, 1, &sib))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, 1, &sib))
 			return false;
-		}
 		operands[0] = g_sibTable[sib];
 	}
 	else
@@ -334,11 +343,8 @@ static __inline bool ProcessModRmOperands(X86DecoderState* const state,
 		int64_t sign;
 
 		displacement = 0;
-		if (!state->fetch(state->ctxt, operandTableEntry->dispBytes, (uint8_t*)&displacement))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, operandTableEntry->dispBytes, (uint8_t*)&displacement))
 			return false;
-		}
 
 		// Now sign extend the displacement to 64bits.
 		sign = (displacement << (operandTableEntry->dispBytes << 3) & 0x8000000000000000);
@@ -354,11 +360,8 @@ static bool DecodeModRm(X86DecoderState* const state,
 	uint8_t modRm;
 
 	// Fetch the ModRM byte
-	if (!state->fetch(state->ctxt, 1, (uint8_t*)&modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, (uint8_t*)&modRm))
 		return false;
-	}
 
 	return ProcessModRmOperands(state, operandTable, operands, modRm);
 }
@@ -375,11 +378,8 @@ static bool DecodeImmediate(X86DecoderState* const state,
 
 	// Fetch the immediate value
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandTable->dispBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandTable->dispBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operandTable->dispBytes << 3) & 0x8000000000000000);
@@ -515,11 +515,8 @@ static bool DecodeJumpConditional(X86DecoderState* const state, uint8_t row, uin
 	state->instr->operands[0].size = 1;
 
 	// Grab the displacement byte
-	if (!state->fetch(state->ctxt, 1, &disp))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &disp))
 		return false;
-	}
 
 	// Sign extend to 64 bit
 	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)(int8_t)disp;
@@ -604,11 +601,8 @@ static bool DecodePushImmediate(X86DecoderState* state, uint8_t row, uint8_t col
 
 	// Fetch the immediate value
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
@@ -638,11 +632,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	const uint8_t operandBytes = operandSizes[width][state->operandMode];
 
 	// Fetch the modrm byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	opBits = ((modRm >> 3) & 7);
 	state->instr->op = group1Operations[opBits];
@@ -651,11 +642,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	if (operands->sib)
 	{
 		uint8_t sib;
-		if (!state->fetch(state->ctxt, 1, &sib))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, 1, &sib))
 			return false;
-		}
 		state->instr->operands[0] = g_sibTable[sib];
 	}
 	else
@@ -669,11 +657,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 		int64_t sign;
 
 		displacement = 0;
-		if (!state->fetch(state->ctxt, operands->dispBytes, (uint8_t*)&displacement))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, operands->dispBytes, (uint8_t*)&displacement))
 			return false;
-		}
 
 		// Now sign extend the displacement to 64bits.
 		sign = (displacement << (operands->dispBytes << 3) & 0x8000000000000000);
@@ -681,11 +666,8 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// Now sign extend the immediate to 64bits.
 	sign = (imm << (operandBytes << 3) & 0x8000000000000000);
@@ -753,11 +735,8 @@ static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
 	const uint8_t operandSize = operandSizes[sizeBit][state->operandMode];
 
 	offset = 0;
-	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&offset))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandSize, (uint8_t*)&offset))
 		return false;
-	}
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
@@ -823,11 +802,8 @@ static bool DecodeMovImmByte(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	// TODO: REX
 
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	state->instr->operandCount = 2;
 	state->instr->operands[0].size = 1;
@@ -852,11 +828,8 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 	};
 
 	// Grab the ModRM byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// The source operand is guaranteed to be a byte
 	state->instr->operands[1].size = 1;
@@ -866,11 +839,8 @@ static bool DecodeGroup2(X86DecoderState* state, uint8_t row, uint8_t col)
 	{
 		// Then grab the immediate
 		uint8_t imm;
-		if (!state->fetch(state->ctxt, 1, &imm))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, 1, &imm))
 			return false;
-		}
 
 		// The source is an immediate byte
 		state->instr->operands[1].operandType = X86_IMMEDIATE;
@@ -929,11 +899,8 @@ static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 
 	// First grab the ModRM byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// A GPR source is invalid here.
 	if ((modRm >> 6) & 3)
@@ -971,11 +938,8 @@ static bool DecodeGroup11(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operands[1].operandType = X86_IMMEDIATE;
 	state->instr->operands[1].size = operandSize;
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&imm))
-	{
-		state->instr->flags = X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandSize, (uint8_t*)&imm))
 		return false;
-	}
 
 	// Figure out the destination
 	if (!DecodeModRm(state, operandTable, operands))
@@ -998,11 +962,8 @@ static bool DecodeAsciiAdjust(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operands[0].size = 0;
 	state->instr->operands[0].operandType = operands[op];
 
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 	state->instr->operands[0].immediate = imm;
 
 	return true;
@@ -1043,11 +1004,8 @@ static bool DecodeFPArithmetic(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	if (modRm & 0xc0)
 	{
@@ -1085,11 +1043,8 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1159,11 +1114,8 @@ static bool DecodeFPMovConditional(X86DecoderState* state, uint8_t row, uint8_t 
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1217,11 +1169,8 @@ static bool DecodeFPMovNegConditional(X86DecoderState* state, uint8_t row, uint8
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1285,11 +1234,8 @@ static bool DecodeFPFreeStore(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1343,11 +1289,8 @@ static bool DecodeFPArithmeticPop(X86DecoderState* state, uint8_t row, uint8_t c
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1399,11 +1342,8 @@ static bool DecodeFPIntPop(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	reg = MODRM_REG(modRm);
 	if (modRm & 0xc0)
@@ -1470,11 +1410,8 @@ static bool DecodeLoop(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t imm;
 
 	// All three have one immediate byte argument (jump target)
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	state->instr->op = op[operation];
 	state->instr->operandCount = 1;
@@ -1493,11 +1430,8 @@ static bool DecodeJcxz(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t imm;
 
 	// Fetch the immediate argument (jump target)
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	state->instr->op = op[state->operandMode];
 	state->instr->operandCount = 1;
@@ -1518,11 +1452,8 @@ static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t imm;
 	size_t operand;
 
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	operand = direction;
 	state->instr->op = op[operand];
@@ -1576,11 +1507,8 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t reg;
 
 	// Grab the ModRM byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// Extra opcode bits are in the reg field of the ModRM byte
 	reg = MODRM_REG(modRm);
@@ -1589,11 +1517,8 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 	if (state->instr->op == X86_TEST)
 	{
 		uint8_t imm;
-		if (!state->fetch(state->ctxt, 1, &imm))
-		{
-			state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+		if (!Fetch(state, 1, &imm))
 			return false;
-		}
 
 		// Sign extend to 64 bits.
 		state->instr->operands[1].immediate = (int64_t)(int32_t)(int16_t)(int8_t)imm;
@@ -1639,11 +1564,8 @@ static bool DecodeIMUL(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	// Now grab the second source, an immediate
 	imm = 0;
-	if (!state->fetch(state->ctxt, immSize, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, immSize, (uint8_t*)&imm))
 		return false;
-	}
 
 	state->instr->op = X86_IMUL;
 	state->instr->operandCount = 3;
@@ -1727,11 +1649,8 @@ static bool DecodeMovSeg(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operandCount = 2;
 
 	// Grab the ModRm byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// Look for values of 6 or 7 in the reg field
 	// (does not encode a valid segment register)
@@ -1764,11 +1683,8 @@ static bool DecodeLea(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 
 	// Grab the ModRm byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// Only memory references are valid in the rm field.
 	if ((modRm & 0xc0) == 0xc0)
@@ -1797,11 +1713,8 @@ static bool DecodeGroup1a(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t reg;
 
 	// Grab the ModRm byte
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	// Only reg 0 is valid, which is POP R/M
 	reg = MODRM_REG(modRm);
@@ -1861,11 +1774,8 @@ static bool DecodeCallFar(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 	}
 
-	if (!state->fetch(state->ctxt, operandBytes, farPtr.imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, farPtr.imm))
 		return false;
-	}
 
 	state->instr->op = X86_CALLF;
 	state->instr->operandCount = 2;
@@ -1906,11 +1816,8 @@ static bool DecodeTestImm(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->op = X86_TEST;
 
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandSize, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandSize, (uint8_t*)&imm))
 		return false;
-	}
 
 	state->instr->operandCount = 2;
 
@@ -2011,11 +1918,8 @@ static bool DecodeMovImm(X86DecoderState* state, uint8_t row, uint8_t col)
 	};
 	uint64_t imm;
 
-	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// TODO: REX
 
@@ -2046,11 +1950,8 @@ static bool DecodeEnter(X86DecoderState* state, uint8_t row, uint8_t col)
 		};
 	} args;
 
-	if (!state->fetch(state->ctxt, 3, args.imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 3, args.imm))
 		return false;
-	}
 
 	state->instr->op = X86_ENTER;
 
@@ -2083,11 +1984,8 @@ static bool DecodeReturnFar(X86DecoderState* state, uint8_t row, uint8_t col)
 	if (col & 1)
 		return true;
 
-	if (!state->fetch(state->ctxt, 2, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 2, (uint8_t*)&imm))
 		return false;
-	}
 
 	state->instr->operandCount = 1;
 	state->instr->operands[0].operandType = X86_IMMEDIATE;
@@ -2113,11 +2011,8 @@ static bool DecodeInt(X86DecoderState* state, uint8_t row, uint8_t col)
 	(void)row;
 	(void)col;
 
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	state->instr->operandCount = 1;
 	state->instr->operands[0].operandType = X86_IMMEDIATE;
@@ -2165,11 +2060,8 @@ static bool DecodeCallJmpRelative(X86DecoderState* state, uint8_t row, uint8_t c
 	(void)col;
 
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// FIXME: The immediate should likely be sign extended.
 	state->instr->op = operations[operation];
@@ -2192,11 +2084,8 @@ static bool DecodeJmpRelative(X86DecoderState* state, uint8_t row, uint8_t col)
 	(void)col;
 
 	imm = 0;
-	if (!state->fetch(state->ctxt, operandBytes, (uint8_t*)&imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
-	}
 
 	// FIXME: The immediate should likely be sign extended.
 	state->instr->op = X86_JMP;
@@ -2226,11 +2115,8 @@ static bool DecodeJmpFar(X86DecoderState* state, uint8_t row, uint8_t col)
 		};
 	} operands = {0};
 
-	if (!state->fetch(state->ctxt, operandBytes, operands.bytes))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, operandBytes, operands.bytes))
 		return false;
-	}
 
 	state->instr->op = X86_JMP;
 	state->instr->operandCount = 2;
@@ -2251,11 +2137,8 @@ static bool DecodeJmpRelativeByte(X86DecoderState* state, uint8_t row, uint8_t c
 {
 	uint8_t imm;
 
-	if (!state->fetch(state->ctxt, 1, &imm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &imm))
 		return false;
-	}
 
 	state->instr->op = X86_JMP;
 	state->instr->operandCount = 1;
@@ -2306,11 +2189,8 @@ static bool DecodeGroup4(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t modRm;
 	uint8_t reg;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	if (!ProcessModRmOperands(state, g_modRmOperands8, operands, modRm))
 		return false;
@@ -2340,11 +2220,8 @@ static bool DecodeGroup5(X86DecoderState* state, uint8_t row, uint8_t col)
 	uint8_t reg;
 	uint8_t mod;
 
-	if (!state->fetch(state->ctxt, 1, &modRm))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	}
 
 	if (!ProcessModRmOperands(state, operandTable, operands, modRm))
 		return false;
@@ -2394,7 +2271,6 @@ static bool DecodeExtendedSegmentPrefix(X86DecoderState* state, uint8_t row, uin
 	state->instr->flags &= ~(X86_FLAG_SEGMENT_OVERRIDE_CS | X86_FLAG_SEGMENT_OVERRIDE_SS
 		| X86_FLAG_SEGMENT_OVERRIDE_DS | X86_FLAG_SEGMENT_OVERRIDE_ES | X86_FLAG_SEGMENT_OVERRIDE_FS
 		| X86_FLAG_SEGMENT_OVERRIDE_GS);
-
 
 	state->instr->flags |= segments[colBit];
 
@@ -2576,11 +2452,8 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 	uint8_t col;
 
 	// Grab a byte from the machine
-	if (!state->fetch(state->ctxt, 1, &op))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
+	if (!Fetch(state, 1, &op))
 		return false;
-	}
 
 	row  = ((op >> 4) & 0xf);
 	col = (op & 0xf);
