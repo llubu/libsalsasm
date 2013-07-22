@@ -190,7 +190,20 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 
 bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	return false;
+	X86DecoderState state;
+
+	state.fetch = fetch;
+	state.ctxt = ctxt;
+	state.instr = instr;
+	state.valid = true;
+	state.mode = X86_32BIT;
+	state.operandMode = X86_32BIT;
+	state.instr->flags = X86_FLAG_NONE;
+
+	if (!DecodePrimaryOpcodeMap(&state))
+		return false;
+
+	return true;
 }
 
 
