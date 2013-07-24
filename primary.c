@@ -713,7 +713,7 @@ static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static bool DecodeMovRax(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeMovOffset(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	uint64_t offset;
 	static const uint8_t operandSizes[2][3] =
@@ -775,32 +775,6 @@ static bool DecodeMovCmpString(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->operands[g_operandOrder[op][0]].operandType = operands[opSize][0];
 	state->instr->operands[g_operandOrder[op][1]].segment = segments[1];
 	state->instr->operands[g_operandOrder[op][1]].operandType = operands[opSize][1];
-
-	return true;
-}
-
-
-static bool DecodeMovImmByte(X86DecoderState* state, uint8_t row, uint8_t col)
-{
-	uint8_t imm;
-	static const X86OperandType dests[16] =
-	{
-		X86_AL, X86_CL, X86_DL, X86_BL,
-		X86_AH, X86_CH, X86_DH, X86_BH,
-		X86_R8B, X86_R9B, X86_R10B, X86_R11B,
-		X86_R12B, X86_R13B, X86_R14B, X86_R15B
-	};
-
-	// TODO: REX
-
-	if (!Fetch(state, 1, &imm))
-		return false;
-
-	state->instr->operandCount = 2;
-	state->instr->operands[0].size = 1;
-	state->instr->operands[0].operandType = dests[col];
-	state->instr->operands[1].size = 1;
-	state->instr->operands[1].immediate = (int64_t)(int32_t)(int16_t)(int8_t)imm;
 
 	return true;
 }
@@ -1887,10 +1861,18 @@ static bool DecodeString(X86DecoderState* state, uint8_t row, uint8_t col)
 static bool DecodeMovImm(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	uint64_t imm;
-	const uint8_t operandBytes = g_decoderModeSizeXref[state->mode];
-	const uint8_t operand = col >> 3;
-	static const X86OperandType dests[3][16] =
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->mode]};
+	const uint8_t operandSizeBit = (col >> 3) & 1;
+	const uint8_t operand = col & 7;
+	const uint8_t operandBytes = operandSizes[operandSizeBit];
+	static const X86OperandType dests[4][16] =
 	{
+		{
+			X86_AL, X86_CL, X86_DL, X86_BL,
+			X86_AH, X86_CH, X86_DH, X86_BH,
+			X86_R8B, X86_R9B, X86_R10B, X86_R11B,
+			X86_R12B, X86_R13B, X86_R14B, X86_R15B
+		},
 		{
 			X86_AX, X86_CX, X86_DX, X86_BX,
 			X86_SP, X86_BP, X86_SI, X86_DI,
@@ -2119,7 +2101,7 @@ static bool DecodeJmpFar(X86DecoderState* state, uint8_t row, uint8_t col)
 	if (state->operandMode == X86_16BIT)
 		state->instr->operands[1].immediate = operands.offset.w;
 	else
-		state->instr->operands[1].immediate = operands.offset.w;
+		state->instr->operands[1].immediate = operands.offset.d;
 
 	return true;
 }
@@ -2389,15 +2371,15 @@ static const PrimaryDecoder primaryDecoders[16][16] =
 
 	// Row 0xa
 	{
-		DecodeMovRax, DecodeMovRax, DecodeMovRax, DecodeMovRax,
+		DecodeMovOffset, DecodeMovOffset, DecodeMovOffset, DecodeMovOffset,
 		DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString,
 		DecodeTestImm, DecodeTestImm, DecodeString, DecodeString, DecodeString, DecodeString
 	},
 
 	// Row 0xb
 	{
-		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
-		DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte, DecodeMovImmByte,
+		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
+		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
 		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
 		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm
 	},
