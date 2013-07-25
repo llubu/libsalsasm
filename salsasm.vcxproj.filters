@@ -28,5 +28,8 @@
     <ClInclude Include="salsasm_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="codegen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

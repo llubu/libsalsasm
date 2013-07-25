@@ -304,7 +304,7 @@ typedef struct X86Instruction
 	X86Operation op;
 	X86Operand operands[4];
 	uint8_t operandCount;
-	X86InstructionFlags flags;
+	uint16_t flags;
 	size_t length;
 } X86Instruction;
 
