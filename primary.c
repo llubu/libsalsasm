@@ -2239,134 +2239,103 @@ static bool DecodeRepPrefix(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static const PrimaryDecoder primaryDecoders[16][16] =
+static const PrimaryDecoder g_primaryDecoders[256] =
 {
 	// Row 0
-	{
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeMap
-	},
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeMap,
 
 	// Row 1
-	{
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment
-	},
+	
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
 
 	// Row 2
-	{
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii
-	},
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
 
 	// Row 3
-	{
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
-		DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-		DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii
-	},
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
+	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
 
 	// Row 4
-	{
-		DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-		DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-		DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-		DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec
-	},
+	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
+	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
+	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
+	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
 
 	// Row 5
-	{
-		DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
-		DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
-		DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
-		DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr
-	},
+	DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
+	DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
+	DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
+	DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
 
 	// Row 6
-	{
-		DecodePushPopAll, DecodePushPopAll, DecodeBound, DecodeAarplMovSxd,
-		DecodeExtendedSegmentPrefix, DecodeExtendedSegmentPrefix, DecodeOperandSizePrefix, DecodeAddrSizePrefix,
-		DecodePushImmediate, DecodeIMUL, DecodePushImmediate, DecodeIMUL,
-		DecodeInOutString, DecodeInOutString, DecodeInOutString, DecodeInOutString
-	},
+	DecodePushPopAll, DecodePushPopAll, DecodeBound, DecodeAarplMovSxd,
+	DecodeExtendedSegmentPrefix, DecodeExtendedSegmentPrefix, DecodeOperandSizePrefix, DecodeAddrSizePrefix,
+	DecodePushImmediate, DecodeIMUL, DecodePushImmediate, DecodeIMUL,
+	DecodeInOutString, DecodeInOutString, DecodeInOutString, DecodeInOutString,
 
 	// Row 7
-	{
-		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
-		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
-		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
-		DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional
-	},
+	DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
+	DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
+	DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
+	DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional, DecodeJumpConditional,
 
 	// Row 8
-	{
-		DecodeGroup1, DecodeGroup1, DecodeGroup1, DecodeGroup1,
-		DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm,
-		DecodeMovGpr, DecodeMovGpr, DecodeMovGpr, DecodeMovGpr,
-		DecodeMovSeg, DecodeLea, DecodeMovSeg, DecodeGroup1a
-	},
+	DecodeGroup1, DecodeGroup1, DecodeGroup1, DecodeGroup1,
+	DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm, DecodeTestXchgModRm,
+	DecodeMovGpr, DecodeMovGpr, DecodeMovGpr, DecodeMovGpr,
+	DecodeMovSeg, DecodeLea, DecodeMovSeg, DecodeGroup1a,
 
 	// Row 9
-	{
-		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
-		DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
-		DecodeConvertSize, DecodeConvertSize, DecodeCallFar, DecodeFWait
-	},
+	DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
+	DecodeXchgRax, DecodeXchgRax, DecodeXchgRax, DecodeXchgRax,
+	DecodeConvertSize, DecodeConvertSize, DecodeCallFar, DecodeFWait,
 
 	// Row 0xa
-	{
-		DecodeMovOffset, DecodeMovOffset, DecodeMovOffset, DecodeMovOffset,
-		DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString,
-		DecodeTestImm, DecodeTestImm, DecodeString, DecodeString, DecodeString, DecodeString
-	},
+	DecodeMovOffset, DecodeMovOffset, DecodeMovOffset, DecodeMovOffset,
+	DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString, DecodeMovCmpString,
+	DecodeTestImm, DecodeTestImm, DecodeString, DecodeString,
+	DecodeString, DecodeString, DecodeString, DecodeString,
 
 	// Row 0xb
-	{
-		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
-		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
-		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
-		DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm
-	},
+	DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
+	DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
+	DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
+	DecodeMovImm, DecodeMovImm, DecodeMovImm, DecodeMovImm,
 
 	// Row 0xc
-	{
-		DecodeGroup2, DecodeGroup2, DecodeRetNear, DecodeRetNear,
-		DecodeLoadSegment, DecodeLoadSegment, DecodeGroup11, DecodeGroup11,
-		DecodeEnter, DecodeLeave, DecodeReturnFar, DecodeReturnFar,
-		DecodeInt3, DecodeInt, DecodeInto, DecodeIRet
-	},
+	DecodeGroup2, DecodeGroup2, DecodeRetNear, DecodeRetNear,
+	DecodeLoadSegment, DecodeLoadSegment, DecodeGroup11, DecodeGroup11,
+	DecodeEnter, DecodeLeave, DecodeReturnFar, DecodeReturnFar,
+	DecodeInt3, DecodeInt, DecodeInto, DecodeIRet,
 
 	// Row 0xd
-	{
-		DecodeGroup2, DecodeGroup2, DecodeGroup2, DecodeGroup2,
-		DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat,
-		DecodeFPArithmetic, DecodeFPLoadStore, DecodeFPMovConditional, DecodeFPMovNegConditional,
-		DecodeFPArithmetic, DecodeFPFreeStore, DecodeFPArithmeticPop, DecodeFPIntPop
-	},
+	DecodeGroup2, DecodeGroup2, DecodeGroup2, DecodeGroup2,
+	DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat,
+	DecodeFPArithmetic, DecodeFPLoadStore, DecodeFPMovConditional, DecodeFPMovNegConditional,
+	DecodeFPArithmetic, DecodeFPFreeStore, DecodeFPArithmeticPop, DecodeFPIntPop,
 
 	// Row 0xe
-	{
-		DecodeLoop, DecodeLoop, DecodeLoop, DecodeJcxz,
-		DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte,
-		DecodeCallJmpRelative, DecodeCallJmpRelative, DecodeJmpFar, DecodeJmpRelativeByte,
-		DecodeInOutDx, DecodeInOutDx, DecodeInOutDx, DecodeInOutDx
-
-	},
+	DecodeLoop, DecodeLoop, DecodeLoop, DecodeJcxz,
+	DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte,
+	DecodeCallJmpRelative, DecodeCallJmpRelative, DecodeJmpFar, DecodeJmpRelativeByte,
+	DecodeInOutDx, DecodeInOutDx, DecodeInOutDx, DecodeInOutDx,
 
 	// Row 0xf
-	{
-		DecodeLockPrefix, DecodeINT1, DecodeRepPrefix, DecodeRepPrefix,
-		DecodeHLT, DecodeCMC, DecodeGroup3, DecodeGroup3,
-		DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag,
-		DecodeSetClearFlag, DecodeSetClearFlag, DecodeGroup4, DecodeGroup5
-	}
+	DecodeLockPrefix, DecodeINT1, DecodeRepPrefix, DecodeRepPrefix,
+	DecodeHLT, DecodeCMC, DecodeGroup3, DecodeGroup3,
+	DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag, DecodeSetClearFlag,
+	DecodeSetClearFlag, DecodeSetClearFlag, DecodeGroup4, DecodeGroup5
 };
 
 
@@ -2384,7 +2353,7 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 	row  = ((op >> 4) & 0xf);
 	col = (op & 0xf);
 
-	if (!primaryDecoders[row][col](state, row, col))
+	if (!g_primaryDecoders[op](state, row, col))
 		return false;
 
 	return true;
