@@ -310,28 +310,28 @@ typedef struct X86Instruction
 
 typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result);
 
-#ifdef SALSASM_EXPORTS
+#ifdef LIBSALSASM_EXPORTS
 #ifdef WIN32
-	#define SALSASMAPI __declspec(dllexport)
+	#define LIBSALSASMAPI __declspec(dllexport)
 #else
-	#define SALSASMAPI __attribute__ ((visibility ("default")))
+	#define LIBSALSASMAPI __attribute__ ((visibility ("default")))
 #endif /* WIN32 */
 #else // Import
 #ifdef WIN32
-	#define SALSASMAPI __declspec(dllimport)
+	#define LIBSALSASMAPI __declspec(dllimport)
 #else
-	#define SALSASMAPI
+	#define LIBSALSASMAPI
 #endif /* WIN32 */
-#endif /* SALSASM_EXPORTS */
+#endif /* LIBSALSASM_EXPORTS */
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif /* __cplusplus */
 
-	SALSASMAPI bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	SALSASMAPI bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	SALSASMAPI bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
 
 #ifdef __cplusplus
 }
