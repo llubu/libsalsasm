@@ -38,16 +38,9 @@ typedef struct ModRmRmOperand
 #define SIGN_EXTEND64(val, bytes) (int64_t)(((int64_t)(val)) | ((int64_t)((((int64_t)val) << ((8 - bytes) << 3)) & 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
 
 #define MODRM_RM_OPERANDS16(a, b, c, d) \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 0, 0, 0}, d, 0}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
 	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}
 
-static const ModRmRmOperand g_modRmRmOperands16[256] =
+static const ModRmRmOperand g_modRmRmOperands16[24] =
 {
 	// Mod 00
 	MODRM_RM_OPERANDS16(MEM, BX, SI, 0),
@@ -81,16 +74,9 @@ static const ModRmRmOperand g_modRmRmOperands16[256] =
 };
 
 #define MODRM_RM_OPERANDS32(a, b, c, d, e) \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 0, 0, 0}, d, e}, \
-	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
 	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}
 
-static const ModRmRmOperand g_modRmRmOperands32[256] =
+static const ModRmRmOperand g_modRmRmOperands32[24] =
 {
 	// Mod 00
 	MODRM_RM_OPERANDS32(MEM, EAX, NONE, 0, 0),
