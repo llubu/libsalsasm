@@ -37,68 +37,15 @@ typedef struct ModRmRmOperand
 
 #define SIGN_EXTEND64(val, bytes) (int64_t)(((int64_t)(val)) | ((int64_t)((((int64_t)val) << ((8 - bytes) << 3)) & 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
 
-#define MODRM_RM_OPERANDS8(a, b, c, d) \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 1, 0, 0}, d, 0}
-
-static const ModRmRmOperand g_modRmRmOperands8[256] =
-{
-	// Mod 00
-	MODRM_RM_OPERANDS8(MEM, BX, SI, 0),
-	MODRM_RM_OPERANDS8(MEM, BX, DI, 0),
-	MODRM_RM_OPERANDS8(MEM, BP, SI, 0),
-	MODRM_RM_OPERANDS8(MEM, BP, DI, 0),
-	MODRM_RM_OPERANDS8(MEM, SI, NONE, 0),
-	MODRM_RM_OPERANDS8(MEM, DI, NONE, 0),
-	MODRM_RM_OPERANDS8(MEM, NONE, NONE, 2),
-	MODRM_RM_OPERANDS8(MEM, BX, NONE, 0),
-
-	// Mod 01
-	MODRM_RM_OPERANDS8(MEM, BX, SI, 1),
-	MODRM_RM_OPERANDS8(MEM, BX, DI, 1),
-	MODRM_RM_OPERANDS8(MEM, BP, SI, 1),
-	MODRM_RM_OPERANDS8(MEM, BP, DI, 1),
-	MODRM_RM_OPERANDS8(MEM, SI, NONE, 1),
-	MODRM_RM_OPERANDS8(MEM, DI, NONE, 1),
-	MODRM_RM_OPERANDS8(MEM, BP, NONE, 1),
-	MODRM_RM_OPERANDS8(MEM, BX, NONE, 1),
-
-	// Mod 10
-	MODRM_RM_OPERANDS8(MEM, BX, SI, 2),
-	MODRM_RM_OPERANDS8(MEM, BX, DI, 2),
-	MODRM_RM_OPERANDS8(MEM, BP, SI, 2),
-	MODRM_RM_OPERANDS8(MEM, BP, DI, 2),
-	MODRM_RM_OPERANDS8(MEM, SI, NONE, 2),
-	MODRM_RM_OPERANDS8(MEM, DI, NONE, 2),
-	MODRM_RM_OPERANDS8(MEM, BP, NONE, 2),
-	MODRM_RM_OPERANDS8(MEM, BX, NONE, 2),
-
-	// Mod 11
-	MODRM_RM_OPERANDS8(AL, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(CL, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(DL, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(BL, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(AH, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(CH, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(DH, NONE, NONE, 0),
-	MODRM_RM_OPERANDS8(BH, NONE, NONE, 0),
-};
-
 #define MODRM_RM_OPERANDS16(a, b, c, d) \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, 0}
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}
 
 static const ModRmRmOperand g_modRmRmOperands16[256] =
 {
@@ -131,27 +78,17 @@ static const ModRmRmOperand g_modRmRmOperands16[256] =
 	MODRM_RM_OPERANDS16(MEM, DI, NONE, 2),
 	MODRM_RM_OPERANDS16(MEM, BP, NONE, 2),
 	MODRM_RM_OPERANDS16(MEM, BX, NONE, 2),
-
-	// Mod 11
-	MODRM_RM_OPERANDS16(AX, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(CX, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(DX, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(BX, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(SP, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(BP, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(SI, NONE, NONE, 0),
-	MODRM_RM_OPERANDS16(DI, NONE, NONE, 0),
 };
 
 #define MODRM_RM_OPERANDS32(a, b, c, d, e) \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}, \
-{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 2, 0, 0}, d, e}
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_SS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}, \
+	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, e}
 
 static const ModRmRmOperand g_modRmRmOperands32[256] =
 {
@@ -184,27 +121,17 @@ static const ModRmRmOperand g_modRmRmOperands32[256] =
 	MODRM_RM_OPERANDS32(MEM, NONE, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(MEM, ESI, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(MEM, EDI, NONE, 4, 0),
-
-	// Mod 11
-	MODRM_RM_OPERANDS32(EAX, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(ECX, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(EDX, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(EBX, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(ESP, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(EBP, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(ESI, NONE, NONE, 0, 0),
-	MODRM_RM_OPERANDS32(EDI, NONE, NONE, 0, 0),
 };
 
 #define MODRM_SIB_OPERAND_ROW(scale, index) \
-{X86_MEM, {X86_EAX, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_ECX, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_EDX, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_EBX, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_ESP, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_NONE, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_ESI, index}, X86_DS, 4, scale, 0}, \
-{X86_MEM, {X86_EDI, index}, X86_DS, 4, scale, 0}
+	{X86_MEM, {X86_EAX, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_ECX, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_EDX, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_EBX, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_ESP, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_NONE, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_ESI, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_EDI, index}, X86_DS, 4, scale, 0}
 
 #define MODRM_SIB_OPERAND_COL(scale) \
 	MODRM_SIB_OPERAND_ROW(scale, X86_EAX), \
@@ -226,8 +153,7 @@ static const X86Operand g_sibTable[256] =
 
 static const ModRmRmOperand* const g_modRmRmOperands[4] =
 {
-	g_modRmRmOperands8, g_modRmRmOperands16,
-	g_modRmRmOperands32, g_modRmRmOperands32
+	g_modRmRmOperands16, g_modRmRmOperands32, g_modRmRmOperands32
 };
 
 typedef bool (*PrimaryDecoder)(X86DecoderState* const state, uint8_t row, uint8_t col);
@@ -259,7 +185,7 @@ static const X86OperandType g_gpr64[16] =
 	X86_R9, X86_R10, X86_R11, X86_R12, X86_R13, X86_R14, X86_R15
 };
 
-static const X86OperandType* const g_gprOperandTypeSizeXref[4] = {g_gpr8, g_gpr16, g_gpr32, g_gpr64};
+static const X86OperandType* const g_gprOperandTypes[4] = {g_gpr8, g_gpr16, g_gpr32, g_gpr64};
 
 static const X86OperandType g_fpSources[8] =
 {
@@ -283,8 +209,17 @@ static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* re
 static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t operandSize,
 		X86Operand* const operand, uint8_t modRm)
 {
-	const ModRmRmOperand* const operandTableEntry = &g_modRmRmOperands[operandSize][modRm];
+	const ModRmRmOperand* operandTableEntry;
 
+	if (modRm & 0xc0)
+	{
+		const uint8_t rm = modRm & 7;
+		operand->operandType = g_gprOperandTypes[operandSize >> 1][rm];
+		operand->size = operandSize;
+		return true;
+	}
+
+	operandTableEntry = &g_modRmRmOperands[state->mode][modRm];
 	if (operandTableEntry->sib)
 	{
 		uint8_t sib;
@@ -296,6 +231,7 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 	{
 		memcpy(operand, &operandTableEntry->operand, sizeof(X86Operand));
 	}
+	operand->size = operandSize;
 
 	if (operandTableEntry->dispBytes)
 	{
@@ -317,7 +253,7 @@ static __inline void DecodeModRmRegField(X86DecoderState* const state, uint8_t o
 	X86Operand* const operand, uint8_t modRm)
 {
 	const uint8_t reg = (modRm >> 3) & 7;
-	operand->operandType = g_gprOperandTypeSizeXref[operandSize][reg];
+	operand->operandType = g_gprOperandTypes[operandSize >> 1][reg];
 	operand->size = operandSize;
 }
 
@@ -407,7 +343,7 @@ static bool DecodePrimaryArithmeticImm(X86DecoderState* const state, uint8_t row
 	const uint8_t operandSizeBit = (col & 1); // 1byte or default operand size
 	const size_t operation = (col & 7);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
-	const X86OperandType dest = g_gprOperandTypeSizeXref[operandSize][0];
+	const X86OperandType dest = g_gprOperandTypes[operandSize >> 1][0];
 
 	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
 		return false;
@@ -463,7 +399,7 @@ static bool DecodeIncDec(X86DecoderState* const state, uint8_t row, uint8_t col)
 
 	state->instr->op = ops[operation];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = g_gprOperandTypeSizeXref[operandSize][col];
+	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col];
 	state->instr->operands[0].size = operandSize;
 
 	return true;
@@ -478,7 +414,7 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t row, uint8_t 
 	// FIXME: REX prefix selects extended GPRs.
 	state->instr->op = ops[(col >> 3) & 1];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = g_gprOperandTypeSizeXref[operandSize][col];
+	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col];
 	state->instr->operands[0].size = operandSize;
 
 	return true;
@@ -2248,7 +2184,6 @@ static const PrimaryDecoder g_primaryDecoders[256] =
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeMap,
 
 	// Row 1
-	
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,

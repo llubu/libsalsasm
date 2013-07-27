@@ -62,7 +62,7 @@ static __inline void __emit_arithmetic_rr(CodeGenContext* const ctxt, uint8_t op
 	uint8_t* code = ctxt->offset;
 
 	// Emit an operand size override prefix if requested size is not the current mode
-	if (ctxt->mode == size)
+	if ((ctxt->mode == size) && (size != 1))
 		*code++ = 0x66;
 
 	// Now emit the opcode, set the low bit for 1 byte
@@ -74,6 +74,24 @@ static __inline void __emit_arithmetic_rr(CodeGenContext* const ctxt, uint8_t op
 
 
 static __inline void __emit_arithmetic_rm(CodeGenContext* const ctxt, uint8_t op, uint8_t size,
+	uint8_t destReg, MemoryReference* dest)
+{
+	uint8_t modRm;
+	uint8_t* code = ctxt->offset;
+
+	// Emit an operand size override prefix if requested size is not the current mode
+	if ((ctxt->mode == size) && (size != 1))
+		*code++ = 0x66;
+
+	// Now emit the opcode, set the low bit for 1 byte
+	*code++ = op | ((~size) & 1);
+	// *code++ = modRm;
+
+	ctxt->offset = code;
+}
+
+
+static __inline void __emit_arithmetic_mr(CodeGenContext* const ctxt, uint8_t op, uint8_t size,
 	uint8_t destReg, MemoryReference* src)
 {
 	// const uint8_t modRm = 0x00 | ((destReg & 7) << 3) | (srcReg & 7);
@@ -81,11 +99,11 @@ static __inline void __emit_arithmetic_rm(CodeGenContext* const ctxt, uint8_t op
 	uint8_t* code = ctxt->offset;
 
 	// Emit an operand size override prefix if requested size is not the current mode
-	if (ctxt->mode == size)
+	if ((ctxt->mode == size) && (size != 1))
 		*code++ = 0x66;
 
-	// Now emit the opcode, set the low bit for 1 byte
-	*code++ = op | ((~size) & 1);
+	// Now emit the opcode, set the low bit for 1 byte and bit 1 (direction bit)
+	*code++ = op | ((~size) & 1) | 2
 	// *code++ = modRm;
 
 	ctxt->offset = code;
