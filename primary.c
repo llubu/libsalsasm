@@ -196,8 +196,9 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 		X86Operand* const operand, uint8_t modRm)
 {
 	const ModRmRmOperand* operandTableEntry;
+	size_t operandTableIndex;
 
-	if (modRm & 0xc0)
+	if ((modRm & 0xc0) == 0xc0)
 	{
 		const uint8_t rm = modRm & 7;
 		operand->operandType = g_gprOperandTypes[operandSize >> 1][rm];
@@ -205,7 +206,8 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 		return true;
 	}
 
-	operandTableEntry = &g_modRmRmOperands[state->mode][modRm];
+	operandTableIndex = (((modRm >> 3) &  0x18) | (modRm & 7));
+	operandTableEntry = &g_modRmRmOperands[state->mode][operandTableIndex];
 	if (operandTableEntry->sib)
 	{
 		uint8_t sib;
@@ -300,7 +302,7 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t row, u
 	X86Operand operands[2] = {0};
 	const uint8_t direction = ((col & 2) >> 1);
 	const uint8_t operandSizeBit = (col & 1); // 1byte or default operand size
-	const size_t operation = (col & 7);
+	const size_t operation = ((col & 0x8) >> 1) | (row & 7);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
@@ -327,7 +329,7 @@ static bool DecodePrimaryArithmeticImm(X86DecoderState* const state, uint8_t row
 	};
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeBit = (col & 1); // 1byte or default operand size
-	const size_t operation = (col & 7);
+	const size_t operation = ((col & 0x8) >> 1) | (row & 7);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 	const X86OperandType dest = g_gprOperandTypes[operandSize >> 1][0];
 
@@ -335,6 +337,7 @@ static bool DecodePrimaryArithmeticImm(X86DecoderState* const state, uint8_t row
 		return false;
 
 	state->instr->op = primaryOpCodeTableArithmetic[operation];
+	state->instr->operandCount = 2;
 	state->instr->operands[0].operandType = dest;
 	state->instr->operands[0].size = operandSize;
 
@@ -366,7 +369,7 @@ static bool DecodeAscii(X86DecoderState* const state, uint8_t row, uint8_t col)
 {
 	const size_t opCol = (col >> 3) & 1;
 	static const X86Operation ops[2][2] = {{X86_DAA, X86_AAA}, {X86_DAS, X86_AAS}};
-	state->instr->op = ops[row & 1][opCol];
+	state->instr->op = ops[opCol][row & 1];
 	return true;
 }
 
@@ -434,7 +437,7 @@ static bool DecodePushPopAll(X86DecoderState* const state, uint8_t row, uint8_t 
 {
 	static const X86Operation ops[3][2] = {{X86_PUSHA, X86_POPA}, {X86_PUSHA, X86_POPA}, {X86_PUSHAD, X86_POPAD}};
 
-	state->instr->op = ops[state->mode][row & 1];
+	state->instr->op = ops[state->mode][col & 1];
 	state->instr->operandCount = 0;
 	return true;
 }
@@ -2271,7 +2274,7 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 	if (!Fetch(state, 1, &op))
 		return false;
 
-	row  = ((op >> 4) & 0xf);
+	row = ((op >> 4) & 0xf);
 	col = (op & 0xf);
 
 	if (!g_primaryDecoders[op](state, row, col))
