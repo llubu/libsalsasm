@@ -427,7 +427,7 @@ static bool DecodeJumpConditional(X86DecoderState* const state, uint8_t row, uin
 		return false;
 
 	// Sign extend to 64 bit
-	state->instr->operands[0].immediate = (int64_t)(int32_t)(int16_t)(int8_t)disp;
+	state->instr->operands[0].immediate = SIGN_EXTEND64(disp, 1);
 
 	return true;
 }
