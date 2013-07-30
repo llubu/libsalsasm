@@ -35,8 +35,6 @@ typedef struct ModRmRmOperand
 #define MODRM_REG(a) (((a) >> 3) & 7)
 #define MODRM_RM(a) ((a) & 7)
 
-#define SIGN_EXTEND64(val, bytes) (int64_t)(((int64_t)(val)) | ((int64_t)((((int64_t)val) << ((8 - bytes) << 3)) & 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
-
 #define MODRM_RM_OPERANDS16(a, b, c, d) \
 	{{X86_ ## a, {X86_ ## b, X86_ ## c}, X86_DS, 0, 0, 0}, d, 0}
 
@@ -358,7 +356,7 @@ static bool DecodePushPopSegment(X86DecoderState* const state, uint8_t row, uint
 
 	state->instr->op = ops[col & 1];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = operands[row & 1][operandSelector];
+	state->instr->operands[0].operandType = operands[operandSelector][row & 1];
 	state->instr->operands[0].size = operandSizes[state->operandMode];
 
 	return true;
@@ -388,7 +386,7 @@ static bool DecodeIncDec(X86DecoderState* const state, uint8_t row, uint8_t col)
 
 	state->instr->op = ops[operation];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col];
+	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col & 7];
 	state->instr->operands[0].size = operandSize;
 
 	return true;
@@ -403,7 +401,7 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t row, uint8_t 
 	// FIXME: REX prefix selects extended GPRs.
 	state->instr->op = ops[(col >> 3) & 1];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col];
+	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col & 7];
 	state->instr->operands[0].size = operandSize;
 
 	return true;
@@ -536,7 +534,7 @@ static bool DecodeGroup1(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 	reg = ((modRm >> 3) & 7);
 
-	if (!DecodeModRmRmField(state, 1, &state->instr->operands[0], modRm))
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
 
 	// Operation is encoded in the reg field
@@ -581,20 +579,14 @@ static bool DecodeNop(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeXchgRax(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	static const X86OperandType sources[3][8] =
-	{
-		{X86_NONE, X86_CX, X86_DX, X86_BX, X86_SP, X86_BP, X86_SI, X86_DI},
-		{X86_NONE, X86_ECX, X86_EDX, X86_EBX, X86_ESP, X86_EBP, X86_ESI, X86_EDI},
-		{X86_NONE, X86_RCX, X86_RDX, X86_RBX, X86_RSP, X86_RBP, X86_RSI, X86_RDI}
-	};
-	static const X86OperandType dests[3] = {X86_AX, X86_EAX, X86_RAX};
+	static const X86OperandType sources[3] = {X86_AX, X86_EAX, X86_RAX};
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 
 	state->instr->op = X86_XCHG;
 	state->instr->operandCount = 2;
-	state->instr->operands[0].operandType = dests[state->operandMode];
+	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][col];
 	state->instr->operands[0].size = operandSize;
-	state->instr->operands[0].operandType = sources[state->operandMode][col];
+	state->instr->operands[1].operandType = sources[state->operandMode];
 	state->instr->operands[1].size = operandSize;
 
 	return true;
@@ -1473,16 +1465,21 @@ static bool DecodeInOutString(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeMovGpr(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t operandSizeBit = col & 1;
 	X86Operand operands[2] = {0};
+	const uint8_t operandSize = operandSizes[operandSizeBit];
+	const uint8_t direction = ((col >> 1) & 1);
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
 
 	state->instr->op = X86_MOV;
 	if (!DecodeModRm(state, operandSize, operands))
 		return false;
 
 	state->instr->operandCount = 2;
-	state->instr->operands[0] = operands[0];
-	state->instr->operands[1] = operands[1];
+	state->instr->operands[0] = operands[operand0];
+	state->instr->operands[1] = operands[operand1];
 
 	return true;
 }

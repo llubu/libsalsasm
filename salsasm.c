@@ -170,7 +170,7 @@ static const char* const X86Mnemonics[] =
 
 
 
-bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
+bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
 	X86DecoderState state = {0};
 
@@ -182,6 +182,7 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.operandMode = X86_16BIT;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
+	state.instr->rip = SIGN_EXTEND64(ip, 2);
 
 	if (!DecodePrimaryOpcodeMap(&state))
 		return false;
@@ -190,7 +191,7 @@ bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 }
 
 
-bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
+bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
 	X86DecoderState state = {0};
 
@@ -203,6 +204,7 @@ bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 	state.instr->flags = X86_FLAG_NONE;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
+	state.instr->rip = SIGN_EXTEND64(eip, 4);
 
 	if (!DecodePrimaryOpcodeMap(&state))
 		return false;
@@ -211,7 +213,7 @@ bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* i
 }
 
 
-bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
+bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
 	return false;
 }

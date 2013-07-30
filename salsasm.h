@@ -307,7 +307,10 @@ typedef struct X86Instruction
 	uint8_t operandCount;
 	uint16_t flags;
 	size_t length;
+	uint64_t rip;
 } X86Instruction;
+
+#define SIGN_EXTEND64(val, bytes) (int64_t)(((int64_t)(val)) | ((int64_t)((((int64_t)val) << ((8 - bytes) << 3)) & 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
 
 typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result);
 
@@ -330,9 +333,9 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-	LIBSALSASMAPI bool Disassemble16(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	LIBSALSASMAPI bool Disassemble32(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	LIBSALSASMAPI bool Disassemble64(InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
 
 #ifdef __cplusplus
 }
