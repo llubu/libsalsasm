@@ -1661,10 +1661,9 @@ static bool DecodePushPopFlags(X86DecoderState* state, uint8_t row, uint8_t col)
 		{X86_PUSHF, X86_PUSHFD, X86_PUSHFQ},
 		{X86_POPF, X86_POPFD, X86_POPFQ},
 	};
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	const uint8_t operation = (col & 1);
 
-	state->instr->op = ops[operandSize][operation];
+	state->instr->op = ops[operation][state->operandMode];
 
 	return true;
 }
