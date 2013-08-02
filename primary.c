@@ -1276,15 +1276,17 @@ static bool DecodeJcxz(X86DecoderState* state, uint8_t row, uint8_t col)
 }
 
 
-static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
+static bool DecodeInOutImm(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	static const X86Operation operations[2] = {X86_IN, X86_OUT};
-	static const X86OperandType opTypes[2] = {X86_AL, X86_IMMEDIATE};
-	const size_t direction = ((col >> 3) & 1);
-	const size_t op = ((col >> 3) & 3);
+	const uint8_t operandSizeBit = col & 1;
+	const size_t direction = ((col >> 1) & 1);
+	const size_t op = direction;
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const size_t operand0 = direction;
+	const size_t operand1 = ((~direction) & 1);
+	const uint8_t operandSize = operandSizes[operandSizeBit];
 	uint8_t imm;
-	size_t operand0 = direction;
-	size_t operand1 = ((~direction) & 1);
 
 	if (!Fetch(state, 1, &imm))
 		return false;
@@ -1292,13 +1294,13 @@ static bool DecodeInOutByte(X86DecoderState* state, uint8_t row, uint8_t col)
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
 
-	state->instr->operands[operand0].size = 1;
-	state->instr->operands[operand0].operandType = opTypes[0];
+	state->instr->operands[operand0].operandType = g_gprOperandTypes[operandSize >> 1][0];
+	state->instr->operands[operand0].size = operandSizes[operandSizeBit];
 
 	// Process the immediate operand
-	state->instr->operands[operand1].size = 1;
-	state->instr->operands[operand1].operandType = opTypes[1];
+	state->instr->operands[operand1].operandType = X86_IMMEDIATE;
 	state->instr->operands[operand1].immediate = imm;
+	state->instr->operands[operand1].size = 1;
 
 	return true;
 }
@@ -1327,13 +1329,15 @@ static bool DecodeCMC(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	static const X86Operation ops[8] =
+	static const X86Operation operations[8] =
 	{
-		X86_TEST, X86_TEST,  X86_NOT, X86_NEG, X86_MUL, X86_IMUL, X86_DIV, X86_IDIV
+		X86_TEST, X86_TEST, X86_NOT, X86_NEG,
+		X86_MUL, X86_IMUL, X86_DIV, X86_IDIV
 	};
-	const size_t size = row & 1;
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	X86Operand operands[2] = {0};
+	const uint8_t operandSizeBit = col & 1;
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	X86Operand operand = {0};
+	const uint8_t operandSize = operandSizes[operandSizeBit];
 	uint8_t modRm;
 	uint8_t reg;
 
@@ -1343,17 +1347,20 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	// Extra opcode bits are in the reg field of the ModRM byte
 	reg = MODRM_REG(modRm);
-	state->instr->op = ops[reg];
+	state->instr->op = operations[reg];
 
 	if (state->instr->op == X86_TEST)
 	{
-		uint8_t imm;
-		if (!Fetch(state, 1, &imm))
+		uint64_t imm;
+
+		imm = 0;
+		if (!Fetch(state, operandSize, (uint8_t*)&imm))
 			return false;
 
 		// Sign extend to 64 bits.
-		state->instr->operands[1].immediate = (int64_t)(int32_t)(int16_t)(int8_t)imm;
 		state->instr->operands[1].operandType = X86_IMMEDIATE;
+		state->instr->operands[1].immediate = SIGN_EXTEND64(imm, 1);
+		state->instr->operands[1].size = operandSize;
 		state->instr->operandCount = 2;
 	}
 	else
@@ -1362,9 +1369,10 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t row, uint8_t col)
 	}
 
 	// Figure out the destination
-	if (!DecodeModRm(state, operandSize, operands))
+	if (!DecodeModRmRmField(state, operandSize, &operand, modRm))
 		return false;
-	state->instr->operands[0] = operands[0];
+	state->instr->operands[0] = operand;
+	state->instr->operands[0].size = operandSize;
 
 	return true;
 }
@@ -1927,7 +1935,7 @@ static bool DecodeCallJmpRelative(X86DecoderState* state, uint8_t row, uint8_t c
 	static const uint8_t operandSizes[3] = {2, 4, 4};
 	const uint8_t operandBytes = operandSizes[state->operandMode];
 	static const X86Operation operations[2] = {X86_CALLN, X86_JMP};
-	const uint8_t operation = row & 1;
+	const uint8_t operation = col & 1;
 	uint64_t imm;
 
 	(void)row;
@@ -2026,21 +2034,20 @@ static bool DecodeInOutDx(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->mode]};
 	static const X86Operation operations[2] = {X86_IN, X86_OUT};
-	static const X86OperandType operands[4] = {X86_AL, X86_AX, X86_EAX, X86_RAX};
-	const uint8_t operation = (col >> 2) & 1;
-	const uint8_t operandSize = operandSizes[operation];
-	uint8_t direction;
+	const uint8_t operandSizeBit = (col & 1);
+	const uint8_t operation = (col >> 1) & 1;
+	const uint8_t operandSize = operandSizes[operandSizeBit];
+	const uint8_t operand0 = operation;
+	const uint8_t operand1  = ((~operation) & 1);
 
 	state->instr->op = operations[operation];
 	state->instr->operandCount = 2;
 
-	direction = ((~operation) & 1);
-	state->instr->operands[direction].operandType = X86_DX;
-	state->instr->operands[direction].size = 2;
+	state->instr->operands[operand0].operandType = g_gprOperandTypes[operandSize >> 1][0];
+	state->instr->operands[operand0].size = operandSize;
 
-	direction = operation;
-	state->instr->operands[direction].size =  operandSize;
-	state->instr->operands[direction].operandType = operands[operandSize];
+	state->instr->operands[operand1].operandType = X86_DX;
+	state->instr->operands[operand1].size = 2;
 
 	return true;
 }
@@ -2049,7 +2056,8 @@ static bool DecodeInOutDx(X86DecoderState* state, uint8_t row, uint8_t col)
 static bool DecodeSetClearFlag(X86DecoderState* state, uint8_t row, uint8_t col)
 {
 	static const X86Operation operations[6] = {X86_CLC, X86_STC, X86_CLI, X86_STI, X86_CLD, X86_STD};
-	state->instr->op = operations[col];
+	const uint8_t op = (col & 7);
+	state->instr->op = operations[op];
 	return true;
 }
 
@@ -2273,7 +2281,7 @@ static const PrimaryDecoder g_primaryDecoders[256] =
 
 	// Row 0xe
 	DecodeLoop, DecodeLoop, DecodeLoop, DecodeJcxz,
-	DecodeInOutByte, DecodeInOutByte, DecodeInOutByte, DecodeInOutByte,
+	DecodeInOutImm, DecodeInOutImm, DecodeInOutImm, DecodeInOutImm,
 	DecodeCallJmpRelative, DecodeCallJmpRelative, DecodeJmpFar, DecodeJmpRelativeByte,
 	DecodeInOutDx, DecodeInOutDx, DecodeInOutDx, DecodeInOutDx,
 
