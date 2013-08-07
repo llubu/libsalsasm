@@ -190,22 +190,30 @@ static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* re
 }
 
 
-static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t operandSize,
+static __inline bool IsModRmRmFieldReg(uint8_t modRm)
+{
+	if ((modRm & 0xc0) == 0xc0)
+		return true;
+	return false;
+}
+
+
+static __inline bool DecodeModRmRmFieldReg(X86DecoderState* const state, uint8_t operandSize,
 		X86Operand* const operand, uint8_t modRm)
 {
-	const ModRmRmOperand* operandTableEntry;
-	size_t operandTableIndex;
+	const uint8_t rm = modRm & 7;
+	operand->operandType = g_gprOperandTypes[operandSize >> 1][rm];
+	operand->size = operandSize;
+	return true;
+}
 
-	if ((modRm & 0xc0) == 0xc0)
-	{
-		const uint8_t rm = modRm & 7;
-		operand->operandType = g_gprOperandTypes[operandSize >> 1][rm];
-		operand->size = operandSize;
-		return true;
-	}
 
-	operandTableIndex = (((modRm >> 3) &  0x18) | (modRm & 7));
-	operandTableEntry = &g_modRmRmOperands[state->mode][operandTableIndex];
+static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint8_t operandSize,
+		X86Operand* const operand, uint8_t modRm)
+{
+	const size_t operandTableIndex = (((modRm >> 3) &  0x18) | (modRm & 7));
+	const ModRmRmOperand* operandTableEntry = &g_modRmRmOperands[state->mode][operandTableIndex];
+
 	if (operandTableEntry->sib)
 	{
 		uint8_t sib;
@@ -232,6 +240,17 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 	}
 
 	return true;
+	return false;
+}
+
+
+static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t operandSize,
+		X86Operand* const operand, uint8_t modRm)
+{
+	if (IsModRmRmFieldReg(modRm))
+		return DecodeModRmRmFieldReg(state, operandSize, operand, modRm);
+
+	return DecodeModRmRmFieldMemory(state, operandSize, operand, modRm);
 }
 
 
@@ -731,11 +750,11 @@ static bool DecodeLoadSegment(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 
 	// A GPR source is invalid here.
-	if ((modRm >> 6) & 3)
+	if (IsModRmRmFieldReg(modRm))
 		return false;
 
 	// Figure out the source
-	if (!DecodeModRmRmField(state, size, operands, modRm))
+	if (!DecodeModRmRmFieldMemory(state, size, operands, modRm))
 		return false;
 	state->instr->operands[1] = operands[1];
 	state->instr->operands[1].size = operandSize;
@@ -828,23 +847,23 @@ static bool DecodeFPArithmetic(X86DecoderState* state, uint8_t row, uint8_t col)
 		X86_FADD, X86_FMUL, X86_FCOM, X86_FCOMP,
 		X86_FSUB, X86_FSUBR, X86_FDIV, X86_FDIVR
 	};
-	X86Operand operands[2] = {0};
+	X86Operand srcOperand;
 	uint8_t modRm;
 	uint8_t reg;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	if (modRm & 0xc0)
+	if (!IsModRmRmFieldReg(modRm))
 	{
 		const uint8_t sizeBit = (col >> 2) & 1;
 		static const uint8_t operandSizes[2] = {4, 8};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, &srcOperand, modRm))
 			return false;
 
-		state->instr->operands[1] = operands[1];
+		state->instr->operands[1] = srcOperand;
 		state->instr->operands[1].size = operandSizes[sizeBit];
 		state->instr->operands[0].size = operandSizes[sizeBit];
 	}
@@ -868,7 +887,7 @@ static bool DecodeFPArithmetic(X86DecoderState* state, uint8_t row, uint8_t col)
 
 static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 {
-	X86Operand operands[2] = {0};
+	X86Operand operand = {0};
 	uint8_t modRm;
 	uint8_t reg;
 
@@ -876,7 +895,7 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (!IsModRmRmFieldReg(modRm))
 	{
 		static const X86Operation operations[8] =
 		{
@@ -891,9 +910,9 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, &operand, modRm))
 			return false;
-		state->instr->operands[1] = operands[1];
+		state->instr->operands[1] = operand;
 		state->instr->operands[1].size = operandSizes[reg];
 		state->instr->operands[0].size = operandSizes[reg];
 
@@ -906,8 +925,8 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 		const uint8_t rm = MODRM_RM(modRm);
 
 		state->instr->operands[1].operandType = g_fpSources[rm];
-		state->instr->operands[1].size = 4;
-		state->instr->operands[0].size = 4;
+		state->instr->operands[1].size = 10;
+		state->instr->operands[0].size = 10;
 
 		state->instr->op = operations[reg];
 		state->instr->operandCount = 2;
@@ -927,7 +946,12 @@ static bool DecodeFPLoadStore(X86DecoderState* state, uint8_t row, uint8_t col)
 			{X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID, X86_FINCSTP, X86_FCOS} // c7
 		};
 
-		state->instr->op = operations[rm][reg];
+		state->instr->op = operations[rm][reg - 2];
+
+		// ffnop really has no args.
+		if (state->instr->op == X86_FNOP)
+			return true;
+
 		state->instr->operandCount = 1;
 	}
 
@@ -947,7 +971,7 @@ static bool DecodeFPMovConditional(X86DecoderState* state, uint8_t row, uint8_t 
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (!IsModRmRmFieldReg(modRm))
 	{
 		static const X86Operation operations[8] =
 		{
@@ -956,10 +980,10 @@ static bool DecodeFPMovConditional(X86DecoderState* state, uint8_t row, uint8_t 
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, operands, modRm))
 			return false;
 		state->instr->operands[1] = operands[1];
-		state->instr->operands[0].size = 4;
+		state->instr->operands[1].size = 4;
 
 		state->instr->operandCount = 2;
 		state->instr->op = operations[reg];
@@ -978,7 +1002,8 @@ static bool DecodeFPMovConditional(X86DecoderState* state, uint8_t row, uint8_t 
 		state->instr->op = operations[reg];
 		state->instr->operandCount = 2;
 
-		state->instr->operands[0].operandType = g_fpSources[rm];
+		state->instr->operands[1].operandType = g_fpSources[rm];
+		state->instr->operands[1].size = 10;
 	}
 	else
 	{
@@ -986,7 +1011,7 @@ static bool DecodeFPMovConditional(X86DecoderState* state, uint8_t row, uint8_t 
 	}
 
 	state->instr->operands[0].operandType = X86_ST0;
-	state->instr->operands[0].size = 4;
+	state->instr->operands[0].size = 10;
 
 	return true;
 }
@@ -1002,7 +1027,7 @@ static bool DecodeFPMovNegConditional(X86DecoderState* state, uint8_t row, uint8
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (IsModRmRmFieldReg(modRm))
 	{
 		static const X86Operation operations[8] =
 		{
@@ -1016,7 +1041,7 @@ static bool DecodeFPMovNegConditional(X86DecoderState* state, uint8_t row, uint8
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, operands, modRm))
 			return false;
 		state->instr->operands[1] = operands[1];
 		state->instr->operands[1].size = operandSizes[reg];
@@ -1067,7 +1092,7 @@ static bool DecodeFPFreeStore(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (!IsModRmRmFieldReg(modRm))
 	{
 		static const X86Operation operations[8] =
 		{
@@ -1081,7 +1106,7 @@ static bool DecodeFPFreeStore(X86DecoderState* state, uint8_t row, uint8_t col)
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, operands, modRm))
 			return false;
 		state->instr->operands[1] = operands[1];
 		state->instr->operands[1].size = operandSizes[reg];
@@ -1122,7 +1147,7 @@ static bool DecodeFPArithmeticPop(X86DecoderState* state, uint8_t row, uint8_t c
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (IsModRmRmFieldReg(modRm))
 	{
 		static const X86Operation operations[8] =
 		{
@@ -1131,7 +1156,7 @@ static bool DecodeFPArithmeticPop(X86DecoderState* state, uint8_t row, uint8_t c
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, operands, modRm))
 			return false;
 		state->instr->operands[1] = operands[1];
 		state->instr->operands[1].size = 2;
@@ -1175,7 +1200,7 @@ static bool DecodeFPIntPop(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 
 	reg = MODRM_REG(modRm);
-	if (modRm & 0xc0)
+	if (IsModRmRmFieldReg(modRm))
 	{
 		static const uint8_t operandSizes[8] =
 		{
@@ -1189,7 +1214,7 @@ static bool DecodeFPIntPop(X86DecoderState* state, uint8_t row, uint8_t col)
 		};
 
 		// Memory!
-		if (!DecodeModRmRmField(state, 4, operands, modRm))
+		if (!DecodeModRmRmFieldMemory(state, 4, operands, modRm))
 			return false;
 
 		state->instr->operands[1] = operands[1];
@@ -1500,8 +1525,8 @@ static bool DecodeMovSeg(X86DecoderState* state, uint8_t row, uint8_t col)
 
 	// Look for values of 6 or 7 in the reg field
 	// (does not encode a valid segment register)
-	segment = (modRm >> 3) & 7;
-	if (((~segment) & 0xc) == 0)
+	segment = MODRM_REG(modRm);
+	if ((segment & 6) == 6)
 		return false;
 
 	// Process the first operand
@@ -1528,11 +1553,11 @@ static bool DecodeLea(X86DecoderState* state, uint8_t row, uint8_t col)
 		return false;
 
 	// Only memory references are valid in the rm field.
-	if ((modRm & 0xc0) == 0xc0)
+	if (IsModRmRmFieldReg(modRm))
 		return false;
 
 	// Figure out the operands
-	if (!DecodeModRmRmField(state, operandSize, &operands[0], modRm))
+	if (!DecodeModRmRmFieldMemory(state, operandSize, &operands[0], modRm))
 		return false;
 	DecodeModRmRegField(state, operandSize, &operands[1], modRm);
 
@@ -2097,19 +2122,20 @@ static bool DecodeGroup5(X86DecoderState* state, uint8_t row, uint8_t col)
 	X86Operand operands[2] = {0};
 	uint8_t modRm;
 	uint8_t reg;
-	uint8_t mod;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
 	if (!DecodeModRmRmField(state, operandSize, operands, modRm))
 		return false;
-	reg = MODRM_REG(modRm);
-	mod = MODRM_MOD(modRm);
 
 	// GPR encoding for CALL/JMP Mp invalid
-	if (((reg == 3) || (reg == 5)) && (mod == 3))
-		return false;
+	reg = MODRM_REG(modRm);
+	if ((reg == 3) || (reg == 5))
+	{
+		if (IsModRmRmFieldReg(modRm))
+			return false;
+	}
 
 	state->instr->operands[0] = operands[0];
 
