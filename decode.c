@@ -2552,6 +2552,11 @@ static __inline bool DecodeMovSpecialPurpose(X86DecoderState* state, uint8_t opc
 	state->instr->operands[1].size = operandSize;
 
 	state->instr->operands[operand0].operandType = operands[operandSel][reg];
+	if (state->instr->operands[operand0].operandType == X86_NONE)
+	{
+		state->instr->op = X86_INVALID;
+		return false;
+	}
 
 	return true;
 }
