@@ -25,6 +25,7 @@
 #include "decode.h"
 
 typedef bool (*InstructionDecoder)(X86DecoderState* const state, uint8_t opcode);
+static bool DecodeSecondaryOpCodeTable(X86DecoderState* state, uint8_t opcode);
 
 typedef struct ModRmRmOperand
 {
@@ -144,6 +145,7 @@ static const ModRmRmOperand* const g_modRmRmOperands[4] =
 
 static const uint8_t g_operandOrder[2][2] = {{0, 1}, {1, 0}};
 static const uint8_t g_decoderModeSizeXref[3] = {2, 4, 8};
+static const uint8_t g_decoderModeSimdSizeXref[4] = {8, 16, 32, 64};
 
 static const X86OperandType g_gpr8[16] =
 {
@@ -170,6 +172,34 @@ static const X86OperandType g_gpr64[16] =
 };
 
 static const X86OperandType* const g_gprOperandTypes[4] = {g_gpr8, g_gpr16, g_gpr32, g_gpr64};
+
+static const X86OperandType g_mmOperandTypes[8] =
+{
+	X86_MM0, X86_MM1, X86_MM2, X86_MM3, X86_MM4, X86_MM5, X86_MM6, X86_MM7,
+};
+
+static const X86OperandType g_xmmOperandTypes[16] =
+{
+	X86_XMM0, X86_XMM1, X86_XMM2, X86_XMM3, X86_XMM4, X86_XMM5, X86_XMM6, X86_XMM7,
+	X86_XMM8, X86_XMM9, X86_XMM10, X86_XMM11, X86_XMM12, X86_XMM13, X86_XMM14, X86_XMM15
+};
+
+static const X86OperandType g_ymmOperandTypes[16] =
+{
+	X86_YMM0, X86_YMM1, X86_YMM2, X86_YMM3, X86_YMM4, X86_YMM5, X86_YMM6, X86_YMM7,
+	X86_YMM8, X86_YMM9, X86_YMM10, X86_YMM11, X86_YMM12, X86_YMM13, X86_YMM14, X86_YMM15
+};
+
+static const X86OperandType g_zmmOperandTypes[16] =
+{
+	X86_ZMM0, X86_ZMM1, X86_ZMM2, X86_ZMM3, X86_ZMM4, X86_ZMM5, X86_ZMM6, X86_ZMM7,
+	X86_ZMM8, X86_ZMM9, X86_ZMM10, X86_ZMM11, X86_ZMM12, X86_ZMM13, X86_ZMM14, X86_ZMM15
+};
+
+static const X86OperandType* const g_simdOperandTypes[4] =
+{
+	g_mmOperandTypes, g_xmmOperandTypes, g_ymmOperandTypes, g_zmmOperandTypes
+};
 
 static const X86OperandType g_fpSources[8] =
 {
@@ -1414,13 +1444,6 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t opcode)
 }
 
 
-static bool DecodeSecondaryOpCode(X86DecoderState* state, uint8_t opcode)
-{
-	(void)opcode;
-	return false;
-}
-
-
 static bool DecodeIMul(X86DecoderState* state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
@@ -2242,7 +2265,7 @@ static const InstructionDecoder g_primaryDecoders[256] =
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCode,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeTable,
 
 	// Row 1
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
@@ -2349,8 +2372,225 @@ bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 	if (!g_primaryDecoders[opcode](state, opcode))
 		return false;
 
-	ret = state->lastBytePrefix && state->prefixesDone;
+	if (state->lastBytePrefix && state->prefixesDone);
+		return false;
+
 	state->prefixesDone = !state->lastBytePrefix;
 
 	return ret;
+}
+
+
+static bool DecodeGroup6(X86DecoderState* state, uint8_t opcode)
+{
+	static const X86Operation operations[] =
+	{
+		X86_SLDT, X86_STR, X86_LLDT, X86_LTR,
+		X86_VERR, X86_VERW, X86_INVALID, X86_INVALID
+	};
+	uint8_t modRm;
+	uint8_t reg;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+
+	if (!DecodeModRmRmField(state, 2, &state->instr->operands[0], modRm))
+		return false;
+
+	reg = MODRM_REG(modRm);
+	state->instr->op = operations[reg];
+
+	return true;
+}
+
+
+static bool DecodeGroup7(X86DecoderState* state, uint8_t opcode)
+{
+	static const X86Operation operations[] =
+	{
+		X86_SGDT, X86_SIDT, X86_LGDT, X86_LIDT,
+		X86_SMSW, X86_INVALID, X86_LMSW, X86_INVLPG
+	};
+	uint8_t modRm;
+	uint8_t reg;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+
+	if (!DecodeModRmRmField(state, 2, &state->instr->operands[0], modRm))
+		return false;
+
+	reg = MODRM_REG(modRm);
+	state->instr->op = operations[reg];
+
+	return true;
+}
+
+
+static bool DecodeLoadSegmentInfo(X86DecoderState* state, uint8_t opcode)
+{
+	static const X86Operation operations[] = {X86_LAR, X86_LSL};
+	const uint8_t op = opcode & 1;
+
+	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], state->instr->operands))
+		return false;
+
+	state->instr->op = operations[op];
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeSys(X86DecoderState* state, uint8_t opcode)
+{
+	static const X86Operation operations[] = {X86_INVALID, X86_SYSCALL, X86_CLTS, X86_SYSRET};
+	const uint8_t op = (opcode & 3);
+	state->instr->op = operations[op];
+	return true;
+}
+
+
+static __inline bool DecodeModRmRmFieldSimdReg(X86DecoderState* const state, uint8_t operandSize,
+		X86Operand* const operand, uint8_t modRm)
+{
+	const uint8_t rm = modRm & 7;
+	operand->operandType = g_simdOperandTypes[operandSize >> 3][rm];
+	operand->size = operandSize;
+	return true;
+}
+
+
+static __inline void DecodeModRmRegFieldSimd(X86DecoderState* const state, uint8_t operandSize,
+	X86Operand* const operand, uint8_t modRm)
+{
+	const uint8_t reg = (modRm >> 3) & 7;
+	operand->operandType = g_simdOperandTypes[operandSize >> 3][reg];
+	operand->size = operandSize;
+}
+
+
+static __inline bool DecodeModRmRmFieldSimd(X86DecoderState* const state, uint8_t operandSize,
+		X86Operand* const operand, uint8_t modRm)
+{
+	if (IsModRmRmFieldReg(modRm))
+		return DecodeModRmRmFieldSimdReg(state, operandSize, operand, modRm);
+
+	return DecodeModRmRmFieldMemory(state, operandSize, operand, modRm);
+}
+
+
+static __inline bool DecodeModRmSimd(X86DecoderState* const state, uint8_t operandSize, X86Operand* const operands)
+{
+	uint8_t modRm;
+
+	// Fetch the ModRM byte
+	if (!Fetch(state, 1, (uint8_t*)&modRm))
+		return false;
+
+	if (!DecodeModRmRmFieldSimd(state, operandSize, &operands[0], modRm))
+		return false;
+
+	DecodeModRmRegFieldSimd(state, operandSize, &operands[1], modRm);
+
+	return true;
+}
+
+
+static __inline bool DecodePackedSingle(X86DecoderState* state, uint8_t opcode)
+{
+	static const X86Operation operations[] = {X86_MOVUPS, X86_MOVLPS, X86_UNPCKLPS, X86_MOVHPS};
+	const uint8_t operandSizes[] = {8, 16}; // FIXME
+	const uint8_t direction = (opcode & 1);
+	const uint8_t op = (opcode >> 1);
+	const uint8_t operandSize = operandSizes[state->operandMode];
+	X86Operand operands[2] = {0};
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
+
+	if (!DecodeModRmSimd(state, operandSize, operands))
+		return false;
+
+	state->instr->op = operations[op];
+	state->instr->operandCount = 2;
+
+	state->instr->operands[operand0] = operands[0];
+	state->instr->operands[0].size = operandSize;
+
+	state->instr->operands[operand1] = operands[1];
+	state->instr->operands[1].size = operandSize;
+
+	return true;
+}
+
+
+static __inline bool DecodeMovSpecialPurpose(X86DecoderState* state, uint8_t opcode)
+{
+	static const uint8_t operandSizes[] = {4, 4, 8};
+	static const X86OperandType operands[2][8] =
+	{
+		{X86_CR0, X86_NONE, X86_CR2, X86_CR3, X86_CR4, X86_NONE, X86_NONE, X86_NONE},
+		{X86_DR0, X86_DR1, X86_DR2, X86_DR3, X86_NONE, X86_NONE, X86_DR6, X86_DR7}
+	};
+	const uint8_t direction = ((opcode >> 2) & 1);
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
+	const uint8_t operandSel = (opcode & 1);
+	// FIXME: The operand size theoretically should not be altered by addr mode prefix?
+	const uint8_t operandSize = operandSizes[state->mode];
+	uint8_t modRm;
+	uint8_t reg;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[operand1], modRm))
+		return false;
+
+	reg = MODRM_REG(modRm);
+
+	state->instr->operands[0].size = operandSize;
+	state->instr->operands[1].size = operandSize;
+
+	state->instr->operands[operand0].operandType = operands[operandSel][reg];
+
+	return true;
+}
+
+
+static const InstructionDecoder g_secondaryDecodersF2[256] =
+{
+	DecodeInvalid,
+};
+
+static const InstructionDecoder g_secondaryDecodersF3[256] =
+{
+	DecodeInvalid,
+};
+
+static const InstructionDecoder g_secondaryDecoders[256] =
+{
+	// Row 0
+	DecodeGroup6, DecodeGroup6, DecodeLoadSegmentInfo, DecodeLoadSegmentInfo,
+	DecodeSys, DecodeSys, DecodeSys, DecodeSys,
+
+	// Row 1
+	DecodePackedSingle, DecodePackedSingle, DecodePackedSingle, DecodePackedSingle,
+	DecodePackedSingle, DecodePackedSingle, DecodePackedSingle, DecodePackedSingle,
+
+	// Row 2
+	DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+};
+
+static bool DecodeSecondaryOpCodeTable(X86DecoderState* state, uint8_t opcode)
+{
+	// Grab a byte from the machine
+	if (!Fetch(state, 1, &opcode))
+		return false;
+
+	if (!g_secondaryDecoders[opcode](state, opcode))
+		return false;
+
+	return true;
 }
