@@ -24,6 +24,7 @@
 #include "salsasm_types.h"
 #include "decode.h"
 
+// NOTE: These must be maintained in the same order as X86Operations enum!
 static const char* const X86Mnemonics[] =
 {
 	"invalid",
@@ -108,7 +109,7 @@ static const char* const X86Mnemonics[] =
 	"setl", "setnge", "setle", "setng", "setnb", "setae", "setnc",
 	"setnbe", "seta", "setnl", "setge", "setnle", "setg", "setno",
 	"setnp", "setpo", "setns", "setnz", "setne", "seto", "setp",
-	"setpe", "sets", "setz", "sete", "sfence", "sgdt", "shld", "shr",
+	"setpe", "sets", "setz", "sete", "sfence", "sgdt", "sldt", "shld", "shr",
 	"shrd", "shufpd", "shufps", "sidt", "smsw", "sqrtpd", "sqrtps",
 	"sqrtsd", "sqrtss", "stc", "std", "sti", "stmxcsr", "stos",
 	"stosb", "stosw", "stosd", "stosq", "str", "sub", "subpd",
