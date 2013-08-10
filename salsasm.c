@@ -184,7 +184,7 @@ bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86I
 	memset(state.instr, 0, sizeof(X86Instruction));
 	state.instr->rip = SIGN_EXTEND64(ip, 2);
 
-	if (!DecodePrimaryOpcodeMap(&state))
+	if (!DecodePrimaryOpcodeTable(&state))
 		return false;
 
 	return true;
@@ -206,7 +206,7 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 	memset(state.instr, 0, sizeof(X86Instruction));
 	state.instr->rip = SIGN_EXTEND64(eip, 4);
 
-	if (!DecodePrimaryOpcodeMap(&state))
+	if (!DecodePrimaryOpcodeTable(&state))
 		return false;
 
 	return true;

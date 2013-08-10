@@ -39,6 +39,8 @@ typedef struct X86DecoderState
 	bool valid;
 	X86DecoderMode mode;
 	X86DecoderMode operandMode;
+	bool lastBytePrefix;
+	bool prefixesDone;
 } X86DecoderState;
 
 #endif /* __SALSASM_TYPES__ */

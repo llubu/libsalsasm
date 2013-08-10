@@ -1413,7 +1413,7 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t opcode)
 }
 
 
-static bool DecodeSecondaryOpCodeMap(X86DecoderState* state, uint8_t opcode)
+static bool DecodeSecondaryOpCodeTable(X86DecoderState* state, uint8_t opcode)
 {
 	return false;
 }
@@ -2161,6 +2161,8 @@ static bool DecodeSegmentPrefix(X86DecoderState* state, uint8_t opcode)
 	const uint8_t colBit = (opcode >> 3) & 1;
 	const uint8_t rowBit = (opcode >> 4) - 2;
 
+	state->lastBytePrefix = true;
+
 	// Only the last segment override prefix matters.
 	state->instr->flags &= ~(X86_FLAG_SEGMENT_OVERRIDE_CS | X86_FLAG_SEGMENT_OVERRIDE_SS
 		| X86_FLAG_SEGMENT_OVERRIDE_DS | X86_FLAG_SEGMENT_OVERRIDE_ES | X86_FLAG_SEGMENT_OVERRIDE_FS
@@ -2168,7 +2170,7 @@ static bool DecodeSegmentPrefix(X86DecoderState* state, uint8_t opcode)
 
 	state->instr->flags |= segments[rowBit][colBit];
 
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 
@@ -2176,6 +2178,7 @@ static bool DecodeExtendedSegmentPrefix(X86DecoderState* state, uint8_t opcode)
 {
 	static const X86InstructionFlags segments[2] = {X86_FLAG_SEGMENT_OVERRIDE_FS, X86_FLAG_SEGMENT_OVERRIDE_GS};
 	const uint8_t colBit = opcode - 4;
+	state->lastBytePrefix = true;
 
 	// Only the last segment override prefix matters.
 	state->instr->flags &= ~(X86_FLAG_SEGMENT_OVERRIDE_CS | X86_FLAG_SEGMENT_OVERRIDE_SS
@@ -2184,7 +2187,7 @@ static bool DecodeExtendedSegmentPrefix(X86DecoderState* state, uint8_t opcode)
 
 	state->instr->flags |= segments[colBit];
 
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 
@@ -2192,8 +2195,9 @@ static bool DecodeOperandSizePrefix(X86DecoderState* state, uint8_t opcode)
 {
 	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_32BIT};
 	(void)opcode;
+	state->lastBytePrefix = true;
 	state->operandMode = modes[state->operandMode];
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 
@@ -2201,16 +2205,18 @@ static bool DecodeAddrSizePrefix(X86DecoderState* state, uint8_t opcode)
 {
 	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_32BIT};
 	(void)opcode;
+	state->lastBytePrefix = true;
 	state->mode = modes[state->operandMode];
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 
 static bool DecodeLockPrefix(X86DecoderState* state, uint8_t opcode)
 {
 	(void)opcode;
+	state->lastBytePrefix = true;
 	state->instr->flags |= X86_FLAG_LOCK;
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 
@@ -2219,11 +2225,13 @@ static bool DecodeRepPrefix(X86DecoderState* state, uint8_t opcode)
 	static const X86InstructionFlags reps[2] = {X86_FLAG_REPNE, X86_FLAG_REPE};
 	const uint8_t colBit = opcode - 2;
 
+	state->lastBytePrefix = true;
+
 	// Clear existing rep flags, only the last one counts
 	state->instr->flags &= ~(X86_FLAG_REP | X86_FLAG_REPE | X86_FLAG_REPNE);
 	state->instr->flags |= reps[colBit];
 
-	return DecodePrimaryOpcodeMap(state);
+	return DecodePrimaryOpcodeTable(state);
 }
 
 static const PrimaryDecoder g_primaryDecoders[256] =
@@ -2232,7 +2240,7 @@ static const PrimaryDecoder g_primaryDecoders[256] =
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeMap,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeTable,
 
 	// Row 1
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
@@ -2326,9 +2334,10 @@ static const PrimaryDecoder g_primaryDecoders[256] =
 };
 
 
-// See Table A-1 Primary Opcode Map (One-byte Opcodes) AMD 24594_APM_v3.pdf
-bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
+// See Table A-1 Primary Opcode Table (One-byte Opcodes) AMD 24594_APM_v3.pdf
+bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 {
+	bool ret;
 	uint8_t opcode;
 
 	// Grab a byte from the machine
@@ -2338,5 +2347,8 @@ bool DecodePrimaryOpcodeMap(X86DecoderState* const state)
 	if (!g_primaryDecoders[opcode](state, opcode))
 		return false;
 
-	return true;
+	ret = state->lastBytePrefix && state->prefixesDone;
+	state->prefixesDone = !state->lastBytePrefix;
+
+	return ret;
 }

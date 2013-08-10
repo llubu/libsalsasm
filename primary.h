@@ -24,6 +24,6 @@
 
 #include "salsasm_types.h"
 
-	bool DecodePrimaryOpcodeMap(X86DecoderState* const state);
+	bool DecodePrimaryOpcodeTable(X86DecoderState* const state);
 
 #endif /* __PRIMARY_H__ */
