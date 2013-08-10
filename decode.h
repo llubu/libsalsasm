@@ -19,11 +19,11 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 */
-#ifndef __PRIMARY_H__
-#define __PRIMARY_H__
+#ifndef __DECODE_H__
+#define __DECODE_H__
 
 #include "salsasm_types.h"
 
 	bool DecodePrimaryOpcodeTable(X86DecoderState* const state);
 
-#endif /* __PRIMARY_H__ */
+#endif /* __DECODE_H__ */

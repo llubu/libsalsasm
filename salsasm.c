@@ -19,9 +19,10 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 */
-#include "salsasm_types.h"
-#include "primary.h"
 #include <memory.h>
+
+#include "salsasm_types.h"
+#include "decode.h"
 
 static const char* const X86Mnemonics[] =
 {
@@ -167,7 +168,6 @@ static const char* const X86Mnemonics[] =
 	"wbinvd", "wrmsr", "xadd", "xchg", "xgetbv", "xlat",
 	"xlatb", "xor", "xorpd", "xorps", "xrstor", "xsave", "xsetbv"
 };
-
 
 
 bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)

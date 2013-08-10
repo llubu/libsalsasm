@@ -19,10 +19,12 @@
 	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 	THE SOFTWARE.
 */
-#include "salsasm_types.h"
-#include "primary.h"
 #include <memory.h>
 
+#include "salsasm_types.h"
+#include "decode.h"
+
+typedef bool (*InstructionDecoder)(X86DecoderState* const state, uint8_t opcode);
 
 typedef struct ModRmRmOperand
 {
@@ -139,8 +141,6 @@ static const ModRmRmOperand* const g_modRmRmOperands[4] =
 {
 	g_modRmRmOperands16, g_modRmRmOperands32, g_modRmRmOperands32
 };
-
-typedef bool (*PrimaryDecoder)(X86DecoderState* const state, uint8_t opcode);
 
 static const uint8_t g_operandOrder[2][2] = {{0, 1}, {1, 0}};
 static const uint8_t g_decoderModeSizeXref[3] = {2, 4, 8};
@@ -513,16 +513,16 @@ static bool DecodePushImmediate(X86DecoderState* state, uint8_t opcode)
 	const uint8_t operandSizes[2] = {operandModes[state->operandMode], 1};
 	const uint8_t operandBytes = operandSizes[(opcode >> 1) & 1];
 
-	state->instr->op = X86_PUSH;
-	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-
 	// Fetch the immediate value
 	imm = 0;
 	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
 
+	state->instr->op = X86_PUSH;
+	state->instr->operandCount = 1;
+
 	// Now sign extend the immediate to 64bits.
+	state->instr->operands[0].operandType = X86_IMMEDIATE;
 	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, operandBytes);
 	state->instr->operands[0].size = operandBytes;
 
@@ -573,10 +573,10 @@ static bool DecodeTestXchgModRm(X86DecoderState* state, uint8_t opcode)
 	const size_t operation = ((opcode >> 1) & 1);
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 
-	state->instr->op = ops[operation];
 	if (!DecodeModRm(state, operandSize, operands))
 		return false;
 
+	state->instr->op = ops[operation];
 	state->instr->operands[0] = operands[0];
 	state->instr->operands[1] = operands[1];
 
@@ -589,7 +589,6 @@ static bool DecodeNop(X86DecoderState* state, uint8_t opcode)
 	(void)opcode;
 	state->instr->op = X86_NOP;
 	return true;
-
 }
 
 
@@ -601,8 +600,10 @@ static bool DecodeXchgRax(X86DecoderState* state, uint8_t opcode)
 
 	state->instr->op = X86_XCHG;
 	state->instr->operandCount = 2;
+
 	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][operandSel];
 	state->instr->operands[0].size = operandSize;
+
 	state->instr->operands[1].operandType = sources[state->operandMode];
 	state->instr->operands[1].size = operandSize;
 
@@ -1413,8 +1414,9 @@ static bool DecodeGroup3(X86DecoderState* state, uint8_t opcode)
 }
 
 
-static bool DecodeSecondaryOpCodeTable(X86DecoderState* state, uint8_t opcode)
+static bool DecodeSecondaryOpCode(X86DecoderState* state, uint8_t opcode)
 {
+	(void)opcode;
 	return false;
 }
 
@@ -2234,13 +2236,13 @@ static bool DecodeRepPrefix(X86DecoderState* state, uint8_t opcode)
 	return DecodePrimaryOpcodeTable(state);
 }
 
-static const PrimaryDecoder g_primaryDecoders[256] =
+static const InstructionDecoder g_primaryDecoders[256] =
 {
 	// Row 0
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodePushPopSegment,
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,
-	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCodeTable,
+	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodePushPopSegment, DecodeSecondaryOpCode,
 
 	// Row 1
 	DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic, DecodePrimaryArithmetic,

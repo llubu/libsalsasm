@@ -115,14 +115,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="primary.c">
+    <ClCompile Include="decode.c">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">All</AssemblerOutput>
     </ClCompile>
     <ClCompile Include="salsasm.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="codegen.h" />
-    <ClInclude Include="primary.h" />
+    <ClInclude Include="decode.h" />
     <ClInclude Include="salsasm.h" />
     <ClInclude Include="salsasm_types.h" />
   </ItemGroup>

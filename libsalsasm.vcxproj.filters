@@ -14,7 +14,7 @@
     <ClCompile Include="salsasm.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="primary.c">
+    <ClCompile Include="decode.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -22,13 +22,13 @@
     <ClInclude Include="salsasm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="primary.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="salsasm_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="codegen.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decode.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
