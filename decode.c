@@ -2362,7 +2362,6 @@ static const InstructionDecoder g_primaryDecoders[256] =
 // See Table A-1 Primary Opcode Table (One-byte Opcodes) AMD 24594_APM_v3.pdf
 bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 {
-	bool ret;
 	uint8_t opcode;
 
 	// Grab a byte from the machine
@@ -2372,12 +2371,12 @@ bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 	if (!g_primaryDecoders[opcode](state, opcode))
 		return false;
 
-	if (state->lastBytePrefix && state->prefixesDone);
+	if (state->lastBytePrefix && state->prefixesDone)
 		return false;
 
 	state->prefixesDone = !state->lastBytePrefix;
 
-	return ret;
+	return true;
 }
 
 
