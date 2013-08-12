@@ -2598,10 +2598,9 @@ static bool DecodeGroupP(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
 	{
-		// NOTE: AMD says reserved encodings map to PREFETCHNTA,
-		// Intel just says reserved.
-		X86_PREFETCHNTA, X86_PREFETCHT0, X86_PREFETCHT1, X86_PREFETCHT2,
-		X86_PREFETCHNTA, X86_PREFETCHNTA, X86_PREFETCHNTA, X86_PREFETCHNTA // Reserved.
+		// NOTE: This table is actually part of 3dnow, and Intel has no analog
+		X86_PREFETCH, X86_PREFETCHW, X86_PREFETCH, X86_PREFETCHW,
+		X86_PREFETCH, X86_PREFETCH, X86_PREFETCH, X86_PREFETCH // Reserved.
 	};
 	const uint8_t op = (opcode & 3);
 
@@ -2984,12 +2983,20 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 		X86_PREFETCHNTA, X86_PREFETCHT0, X86_PREFETCHT1, X86_PREFETCHT2,
 		X86_NOP, X86_NOP, X86_NOP, X86_NOP
 	};
-	const uint8_t op = (opcode & 3);
+	uint8_t modRm;
+	uint8_t reg;
 
-	if (!DecodeModRm(state, 1, &state->instr->operands[0]))
+	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	state->instr->op = operations[op];
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+
+	if (!DecodeModRmRmFieldMemory(state, 1, &state->instr->operands[0], modRm))
+		return false;
+
+	reg = MODRM_REG(modRm);
+	state->instr->op = operations[reg];
 	state->instr->operandCount = 1;
 
 	return true;
