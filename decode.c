@@ -2976,6 +2976,25 @@ static bool Decode3aTable(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeMovConditional(X86DecoderState* const state, uint8_t opcode)
+{
+	static const X86Operation operations[] =
+	{
+		X86_CMOVO, X86_CMOVNO, X86_CMOVB, X86_CMOVNB,
+		X86_CMOVZ, X86_CMOVNZ, X86_CMOVBE, X86_CMOVNBE,
+		X86_CMOVS, X86_CMOVNS, X86_CMOVP, X86_CMOVNP,
+		X86_CMOVL, X86_CMOVNL, X86_CMOVLE, X86_CMOVNLE
+	};
+	const uint8_t op = (opcode & 0xf);
+
+	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], state->instr->operands))
+		return false;
+
+	state->instr->op = operations[op];
+	state->instr->operandCount = 2;
+}
+
+
 static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
@@ -3041,6 +3060,11 @@ static const InstructionDecoder g_secondaryDecoders[256] =
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 4
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+
 	// Row 5
 	// Row 6
 	// Row 7
