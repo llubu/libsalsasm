@@ -1535,7 +1535,7 @@ static bool DecodeLgs(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] = {X86_MOVZX, X86_MOVSX};
-	static const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeBit = (opcode & 1);
 	const uint8_t op = ((opcode >> 3) & 1);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
@@ -1552,6 +1552,8 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
+
+	return true;
 }
 
 
