@@ -2590,9 +2590,13 @@ static bool DecodeLoadSegmentInfo(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] = {X86_LAR, X86_LSL};
 	const uint8_t op = opcode & 1;
+	X86Operand operands[2] = {0};
 
-	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], state->instr->operands))
+	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], operands))
 		return false;
+
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -3329,8 +3333,8 @@ static bool DecodeAlignedPackedSingle(X86DecoderState* const state, uint8_t opco
 	const uint8_t direction = (opcode & 1);
 	const uint8_t operandSize = operandSizes[0]; // FIXME: VEX
 	X86Operand operands[2] = {0};
-	const uint8_t operand0 = direction;
-	const uint8_t operand1 = ((~direction) & 1);
+	const uint8_t operand0 = ((~direction) & 1);
+	const uint8_t operand1 = direction;
 
 	if (!DecodeModRmSimd(state, operandSize, operands))
 		return false;
@@ -3409,13 +3413,17 @@ static bool DecodeCvtPackedSingleToPackedInt(X86DecoderState* const state, uint8
 
 static bool DecodeComis(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation operations[] = {X86_UCOMISD, X86_COMISD};
+	static const X86Operation operations[] = {X86_UCOMISS, X86_COMISS};
 	static const uint8_t operandSizes[] = {16, 32};
 	const uint8_t op = (opcode & 1);
 	const uint8_t operandSize = operandSizes[0]; // FIXME: VEX
+	X86Operand operands[2] = {0};
 
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimd(state, operandSize, operands))
 		return false;
+
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -3464,9 +3472,13 @@ static bool DecodeMovConditional(X86DecoderState* const state, uint8_t opcode)
 		X86_CMOVL, X86_CMOVNL, X86_CMOVLE, X86_CMOVNLE
 	};
 	const uint8_t op = (opcode & 0xf);
+	X86Operand operands[2] = {0};
 
-	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], state->instr->operands))
+	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], operands))
 		return false;
+
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
