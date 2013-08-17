@@ -3482,10 +3482,8 @@ static bool DecodeMovntps(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
 	if (IsModRmRmFieldReg(modRm))
 		return false;
-
 	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[1], modRm))
 		return false;
 	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[0], modRm);
@@ -3506,10 +3504,9 @@ static bool DecodeCvtPackedSingleToPackedInt(X86DecoderState* const state, uint8
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
