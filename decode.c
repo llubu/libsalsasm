@@ -3221,6 +3221,107 @@ static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeMovmskb(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
+
+	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
+	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
+
+	state->instr->op = X86_PMOVMSKB;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMovntq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[0], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[1], modRm);
+
+	state->instr->op = X86_MOVNTQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMaskMovq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+
+	state->instr->op = X86_MASKMOVQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeUd(X86DecoderState* const state, uint8_t opcode)
+{
+	(void)opcode;
+	state->instr->op = X86_UD;
+	return true;
+}
+
+
+static bool DecodeMmxArithmetic(X86DecoderState* const state, uint8_t opcode)
+{
+	static const X86Operation operations[] =
+	{
+		// Row 0xd
+		X86_INVALID, X86_PSRLW, X86_PSRLD, X86_PSRLQ,
+		X86_PADDQ, X86_PMULLW, X86_INVALID, X86_INVALID,
+		X86_PSUBUSB, X86_PSUBUSW, X86_PMINUB, X86_PAND,
+		X86_PADDUSB, X86_PADDUSW, X86_PMAXUB, X86_PANDN,
+
+		// Row 0xe
+		X86_PAVGB, X86_PSRAW, X86_PSRAD, X86_PAVGW,
+		X86_PMULHUW, X86_PMULHW, X86_INVALID, X86_INVALID,
+		X86_PSUBSB, X86_PSUBSW, X86_PMINSW, X86_POR,
+		X86_PADDUSB, X86_PADDUSW, X86_PMAXUB, X86_PANDN,
+
+		// Row 0xf
+		X86_INVALID, X86_PSLLW, X86_PSLLD, X86_PSLLQ,
+		X86_PMULUDQ, X86_PMADDWD, X86_PSADBW, X86_INVALID,
+		X86_PSUBB, X86_PSUBW, X86_PSUBD, X86_PSUBQ,
+		X86_PADDB, X86_PADDW, X86_PADDD, X86_INVALID
+	};
+	const uint8_t op = ((opcode >> 1) & 0x30) | (opcode & 0xf);
+
+	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+		return false;
+
+	state->instr->op = operations[op];
+	if (state->instr->op == X86_INVALID)
+		return false;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeGroup10(X86DecoderState* const state, uint8_t opcode)
 {
 	state->instr->op = X86_UD;
@@ -3881,6 +3982,24 @@ static const InstructionDecoder g_secondaryDecoders[256] =
 	DecodePinsrw, DecodePextrw, DecodeShufps, DecodeGroup9,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+
+	// Row 0xd
+	DecodeInvalid, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeInvalid, DecodeMovmskb,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+
+	// Row 0xe
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, 
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeInvalid, DecodeMovntq,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, 
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, 
+
+	// Row 0xf
+	DecodeInvalid, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMaskMovq,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeUd,
 };
 
 static bool DecodeSecondaryOpCodeTable(X86DecoderState* const state, uint8_t opcode)
