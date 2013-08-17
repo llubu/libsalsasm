@@ -3092,24 +3092,19 @@ static bool DecodeMovnti(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 {
-	union
-	{
-		uint8_t bytes[2];
-		struct
-		{
-			uint8_t modRm;
-			uint8_t imm;
-		};
-	} args;
+	uint8_t modRm;
+	uint8_t imm;
 
-	if (!Fetch(state, 2, args.bytes))
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmField(state, 2, &state->instr->operands[1], args.modRm))
+	if (!DecodeModRmRmField(state, 2, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], args.modRm);
+	if (!Fetch(state, 1, &imm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
 
 	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(args.imm, 1);
+	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
 	state->instr->operands[2].size = 1;
 
 	state->instr->op = X86_PINSRW;
@@ -3121,26 +3116,21 @@ static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 {
-	union
-	{
-		uint8_t bytes[2];
-		struct
-		{
-			uint8_t modRm;
-			uint8_t imm;
-		};
-	} args;
+	uint8_t modRm;
+	uint8_t imm;
 
-	if (!Fetch(state, 2, args.bytes))
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!IsModRmRmFieldReg(args.modRm))
+	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	if (!DecodeModRmRmFieldSimd(state, 16, &state->instr->operands[1], args.modRm))
+	if (!DecodeModRmRmFieldSimd(state, 16, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, 4, &state->instr->operands[0], args.modRm);
+	if (!Fetch(state, 1, &imm))
+		return false;
+	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
 
 	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(args.imm, 1);
+	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
 	state->instr->operands[2].size = 1;
 
 	state->instr->op = X86_PEXTRW;
@@ -3152,26 +3142,21 @@ static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeShufps(X86DecoderState* const state, uint8_t opcode)
 {
-	union
-	{
-		uint8_t bytes[2];
-		struct
-		{
-			uint8_t modRm;
-			uint8_t imm;
-		};
-	} args;
 	static const uint8_t operandSizes[] = {16, 32};
 	const uint8_t operandSize = operandSizes[0]; // FIXME: VEX
+	uint8_t modRm;
+	uint8_t imm;
 
-	if (!Fetch(state, 2, args.bytes))
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], args.modRm))
+	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[0], args.modRm);
+	if (!Fetch(state, 1, &imm))
+		return false;
+	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[0], modRm);
 
 	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(args.imm, 1);
+	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
 	state->instr->operands[2].size = 1;
 
 	state->instr->op = X86_SHUFPS;
@@ -3337,37 +3322,32 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 		X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
 		X86_BT, X86_BTS, X86_BTR, X86_BTC
 	};
-	union
-	{
-		struct
-		{
-			uint8_t modRm;
-			uint8_t imm;
-		};
-		uint8_t bytes[2];
-	} args;
+	uint8_t modRm;
+	uint8_t imm;
 	uint8_t reg;
 
-	// Fetch ModRM and imm8 at the same time.
-	// Use union to avoid running afoul of strict aliasing
-	if (!Fetch(state, 2, args.bytes))
+	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	reg = MODRM_REG(args.modRm);
-	state->instr->op = operations[reg];
-	if (state->instr->op == X86_INVALID)
+	reg = MODRM_REG(modRm);
+	if (operations[reg] == X86_INVALID)
 		return false;
-	state->instr->operandCount = 2;
 
 	if (!DecodeModRmRmField(state, g_decoderModeSizeXref[state->operandMode],
-		&state->instr->operands[0], args.modRm))
+		&state->instr->operands[0], modRm))
 	{
 		return false;
 	}
 
+	if (!Fetch(state, 1, &imm))
+		return false;
+
 	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].immediate = SIGN_EXTEND64(args.imm, 1);
+	state->instr->operands[1].immediate = SIGN_EXTEND64(imm, 1);
 	state->instr->operands[1].size = 1;
+
+	state->instr->op = operations[reg];
+	state->instr->operandCount = 2;
 
 	return true;
 }
