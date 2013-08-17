@@ -3484,9 +3484,9 @@ static bool DecodeMovntps(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
-	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[0], modRm))
 		return false;
-	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVNTPS;
 	state->instr->operandCount = 2;
