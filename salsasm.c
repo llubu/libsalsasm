@@ -118,7 +118,7 @@ static const char* const X86Mnemonics[] =
 	"sqrtsd", "sqrtss", "stc", "std", "stgi", "sti", "stmxcsr", "stos",
 	"stosb", "stosw", "stosd", "stosq", "str", "sub", "subpd",
 	"subps", "subsd", "subss", "swapgs", "syscall", "sysenter", "sysexit",
-	"sysret", "test", "ucomisd", "ucomiss", "ud", "ud2", "unpckhpd",
+	"sysret", "test", "ucomisd", "ucomiss", "ud", "ud1", "ud2", "unpckhpd",
 	"unpckhps", "unpcklpd", "unpcklps", "vblendpd", "vblendps",
 	"vblendvpd", "vblendvps", "vdppd", "vdpps", "vextractps", "vinsertps",
 	"vmovntdqa", "vmpsadbw", "vpackudsw", "vblendvb", "vpblendw",
