@@ -3664,17 +3664,21 @@ static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t direction = ((opcode >> 4) & 1);
-	const uint8_t operand0 = ((~direction) & 1);
-	const uint8_t operand1 = direction;
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
+	X86Operand operands[2] = {0};
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	if (!DecodeModRmRmField(state, 4, &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmField(state, 4, &operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(state, 8, &operands[0], modRm);
+
+	state->instr->operands[operand0] = operands[0];
+	state->instr->operands[operand1] = operands[1];
 
 	state->instr->op = X86_MOVD;
 	state->instr->operandCount = 2;
