@@ -3059,12 +3059,23 @@ static bool DecodeCmpPacked(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t operandSizes[] = {16, 32};
 	const uint8_t operandSize = operandSizes[0]; // FIXME: VEX
+	X86Operand operands[2] = {0};
+	uint8_t imm;
 
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimd(state, operandSize, operands))
+		return false;
+	if (!Fetch(state, 1, &imm))
 		return false;
 
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
+
+	state->instr->operands[2].operandType = X86_IMMEDIATE;
+	state->instr->operands[2].size = 1;
+	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
+
 	state->instr->op = X86_CMPSS;
-	state->instr->operandCount = 2;
+	state->instr->operandCount = 3;
 
 	return true;
 }
@@ -3092,12 +3103,23 @@ static bool DecodeMovnti(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 {
+	static const uint8_t operandSizes[] = {4, 4, 8};
 	uint8_t modRm;
 	uint8_t imm;
+	uint8_t operandSize;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmField(state, 2, &state->instr->operands[1], modRm))
+
+	// AMD docs call operand[1] Ew, but Intel docs say Ry/Mw
+	// ie only a word from memory but operand size reg.
+	// ntsd and ud86 follow the intel behavior
+	if (IsModRmRmFieldReg(modRm))
+		operandSize = operandSizes[state->operandMode];
+	else
+		operandSize = 2;
+
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
@@ -3624,13 +3646,15 @@ static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 		X86_PUNPCKHBW, X86_PUNPCKHWD, X86_PUNPCKHDQ, X86_PACKSSDW
 	};
 	static const uint8_t operandSizes[] = {4, 4, 4, 8, 8, 8, 8, 8};
+	const uint8_t operandSizeSel = (opcode & 7);
 	const uint8_t op = (opcode & 0xf);
+	const uint8_t operandSize = operandSizes[operandSizeSel];
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	if (!DecodeModRmRmFieldSimd(state, operandSizes[op], &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
 	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
 
