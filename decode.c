@@ -3195,7 +3195,7 @@ static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 {
 	// FIXME: REX
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	const uint8_t reg = (opcode & 0xf);
+	const uint8_t reg = (opcode & 7);
 
 	state->instr->operands[0].size = operandSize;
 	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][reg];
