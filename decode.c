@@ -3145,7 +3145,7 @@ static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	if (!DecodeModRmRmFieldSimd(state, 16, &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmFieldSimd(state, 8, &state->instr->operands[1], modRm))
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
@@ -3275,8 +3275,7 @@ static bool DecodeMaskMovq(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[1], modRm))
-		return false;
+	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
 	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_MASKMOVQ;
@@ -3308,7 +3307,7 @@ static bool DecodeMmxArithmetic(X86DecoderState* const state, uint8_t opcode)
 		X86_PAVGB, X86_PSRAW, X86_PSRAD, X86_PAVGW,
 		X86_PMULHUW, X86_PMULHW, X86_INVALID, X86_INVALID,
 		X86_PSUBSB, X86_PSUBSW, X86_PMINSW, X86_POR,
-		X86_PADDUSB, X86_PADDUSW, X86_PMAXUB, X86_PANDN,
+		X86_PADDSB, X86_PADDSW, X86_PMAXSW, X86_PXOR,
 
 		// Row 0xf
 		X86_INVALID, X86_PSLLW, X86_PSLLD, X86_PSLLQ,
@@ -3316,15 +3315,19 @@ static bool DecodeMmxArithmetic(X86DecoderState* const state, uint8_t opcode)
 		X86_PSUBB, X86_PSUBW, X86_PSUBD, X86_PSUBQ,
 		X86_PADDB, X86_PADDW, X86_PADDD, X86_INVALID
 	};
-	const uint8_t op = ((opcode >> 1) & 0x30) | (opcode & 0xf);
+	const uint8_t op = (opcode - 0xd0) | (opcode & 0xf);
+	X86Operand operands[2] = {0};
 
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+	if (!DecodeModRmSimd(state, 8, operands))
 		return false;
 
 	state->instr->op = operations[op];
 	if (state->instr->op == X86_INVALID)
 		return false;
 	state->instr->operandCount = 2;
+
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
 
 	return true;
 }
