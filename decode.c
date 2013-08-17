@@ -3463,9 +3463,9 @@ static bool DecodeCvtPackedIntToPackedScalar(X86DecoderState* const state, uint8
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	if (!DecodeModRmRmFieldSimd(state, 8, &state->instr->operands[0], modRm))
+	if (!DecodeModRmRmFieldSimd(state, 8, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, 16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_CVTPI2PS;
 	state->instr->operandCount = 2;
