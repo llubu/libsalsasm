@@ -207,6 +207,22 @@ static const X86OperandType g_fpSources[8] =
 };
 
 
+static __inline void InitImmediate(X86Operand* const operand, uint64_t val, uint8_t size)
+{
+	operand->operandType = X86_IMMEDIATE;
+	operand->size = size;
+	operand->immediate = SIGN_EXTEND64(val, size);
+}
+
+
+static __inline void InitImmediateUnsigned(X86Operand* const operand, uint64_t val, uint8_t size)
+{
+	operand->operandType = X86_IMMEDIATE;
+	operand->size = size;
+	operand->immediate = val;
+}
+
+
 static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* result)
 {
 	if (!state->fetch(state->ctxt, len, result))
@@ -318,11 +334,7 @@ static __inline bool DecodeImmediate(X86DecoderState* const state, X86Operand* c
 	imm = 0;
 	if (!Fetch(state, operandSize, (uint8_t*)&imm))
 		return false;
-
-	// Now sign extend the immediate to 64bits.
-	operand->immediate = SIGN_EXTEND64(imm, operandSize);
-	operand->operandType = X86_IMMEDIATE;
-	operand->size = operandSize;
+	InitImmediate(operand, imm, operandSize);
 
 	return true;
 }
@@ -564,14 +576,10 @@ static bool DecodePushImmediate(X86DecoderState* const state, uint8_t opcode)
 	imm = 0;
 	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, operandBytes);
 
 	state->instr->op = X86_PUSH;
 	state->instr->operandCount = 1;
-
-	// Now sign extend the immediate to 64bits.
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, operandBytes);
-	state->instr->operands[0].size = operandBytes;
 
 	return true;
 }
@@ -616,16 +624,20 @@ static bool DecodeGroup1(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeTestXchgModRm(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation ops[2] = {X86_TEST, X86_XCHG};
+	const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->mode]};
 	X86Operand operands[2] = {0};
+	const uint8_t operandSizeSel = (opcode & 1);
 	const size_t operation = ((opcode >> 1) & 1);
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	const uint8_t operandSize = operandSizes[operandSizeSel];
 
 	if (!DecodeModRm(state, operandSize, operands))
 		return false;
 
-	state->instr->op = ops[operation];
 	state->instr->operands[0] = operands[0];
 	state->instr->operands[1] = operands[1];
+
+	state->instr->op = ops[operation];
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -753,16 +765,16 @@ static bool DecodeGroup2(X86DecoderState* const state, uint8_t opcode)
 			return false;
 
 		// The source is an immediate byte
-		state->instr->operands[1].operandType = X86_IMMEDIATE;
-		state->instr->operands[1].immediate = imm;
+		InitImmediateUnsigned(&state->instr->operands[1], imm, 1);
 	}
 	else if ((opcode & 2) == 0)
 	{
-		state->instr->operands[1].operandType = X86_IMMEDIATE;
-		state->instr->operands[1].immediate = 1;
+		// The source is an immediate == 1
+		InitImmediateUnsigned(&state->instr->operands[1], 1, 1);
 	}
 	else
 	{
+		// The source is in cl
 		state->instr->operands[1].operandType = X86_CL;
 	}
 
@@ -826,20 +838,18 @@ static bool DecodeGroup11(X86DecoderState* const state, uint8_t opcode)
 	X86Operand operands[2] = {0};
 	uint64_t imm;
 
-	imm = 0;
-	if (!Fetch(state, operandSize, (uint8_t*)&imm))
-		return false;
-
 	// Figure out the destination
 	if (!DecodeModRm(state, operandSize, operands))
 		return false;
 	state->instr->operands[0] = operands[0];
 
-	state->instr->op = X86_MOV;
+	imm = 0;
+	if (!Fetch(state, operandSize, (uint8_t*)&imm))
+		return false;
+	InitImmediate(&state->instr->operands[1], imm, operandSize);
 
-	// Fetch and initialize the destination immediate operand
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].size = operandSize;
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -848,16 +858,12 @@ static bool DecodeGroup11(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAsciiAdjust(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operation[4] = {X86_AAM, X86_AAD};
-	static const X86OperandType operands[4] = {X86_IMMEDIATE, X86_IMMEDIATE};
 	const uint8_t op = (opcode & 1);
 	uint8_t imm;
 
 	if (!Fetch(state, 1, &imm))
 		return false;
-
-	state->instr->operands[0].operandType = operands[op];
-	state->instr->operands[0].immediate = imm;
-	state->instr->operands[0].size = 1;
+	InitImmediate(&state->instr->operands[0], imm, 1);
 
 	state->instr->op = operation[op];
 	state->instr->operandCount = 1;
@@ -1325,14 +1331,10 @@ static bool DecodeLoop(X86DecoderState* const state, uint8_t opcode)
 	// All three have one immediate byte argument (jump target)
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, 1);
 
 	state->instr->op = op[operation];
 	state->instr->operandCount = 1;
-
-	// Sign extend the immediate to 64 bits.
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].size = 1;
 
 	return true;
 }
@@ -1347,14 +1349,10 @@ static bool DecodeJcxz(X86DecoderState* const state, uint8_t opcode)
 	// Fetch the immediate argument (jump target)
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, 1);
 
 	state->instr->op = op[state->operandMode];
 	state->instr->operandCount = 1;
-
-	// Sign extend the immediate to 64 bits.
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].size = 1;
 
 	return true;
 }
@@ -1372,8 +1370,10 @@ static bool DecodeInOutImm(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 	uint8_t imm;
 
+	// Process the immediate operand
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediateUnsigned(&state->instr->operands[operand1], imm, 1);
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -1381,10 +1381,6 @@ static bool DecodeInOutImm(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[operand0].operandType = g_gprOperandTypes[operandSize >> 1][0];
 	state->instr->operands[operand0].size = operandSizes[operandSizeBit];
 
-	// Process the immediate operand
-	state->instr->operands[operand1].operandType = X86_IMMEDIATE;
-	state->instr->operands[operand1].immediate = imm;
-	state->instr->operands[operand1].size = 1;
 
 	return true;
 }
@@ -1423,7 +1419,6 @@ static bool DecodeGroup3(X86DecoderState* const state, uint8_t opcode)
 	};
 	const uint8_t operandSizeBit = opcode & 1;
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
-	X86Operand operand = {0};
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 	uint8_t modRm;
 	uint8_t reg;
@@ -1438,16 +1433,11 @@ static bool DecodeGroup3(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->instr->op == X86_TEST)
 	{
-		uint64_t imm;
-
-		imm = 0;
+		uint64_t imm = 0;
 		if (!Fetch(state, operandSize, (uint8_t*)&imm))
 			return false;
+		InitImmediate(&state->instr->operands[1], imm, operandSize);
 
-		// Sign extend to 64 bits.
-		state->instr->operands[1].operandType = X86_IMMEDIATE;
-		state->instr->operands[1].immediate = SIGN_EXTEND64(imm, 1);
-		state->instr->operands[1].size = operandSize;
 		state->instr->operandCount = 2;
 	}
 	else
@@ -1456,10 +1446,8 @@ static bool DecodeGroup3(X86DecoderState* const state, uint8_t opcode)
 	}
 
 	// Figure out the destination
-	if (!DecodeModRmRmField(state, operandSize, &operand, modRm))
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
-	state->instr->operands[0] = operand;
-	state->instr->operands[0].size = operandSize;
 
 	return true;
 }
@@ -1489,10 +1477,7 @@ static bool DecodeImulImm(X86DecoderState* const state, uint8_t opcode)
 	imm = 0;
 	if (!Fetch(state, immSize, (uint8_t*)&imm))
 		return false;
-
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, immSize);
-	state->instr->operands[2].size = immSize;
+	InitImmediate(&state->instr->operands[2], imm, immSize);
 
 	state->instr->op = X86_IMUL;
 	state->instr->operandCount = 3;
@@ -1707,11 +1692,7 @@ static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
 		struct
 		{
 			uint16_t segment;
-			union
-			{
-				uint16_t w;
-				uint32_t d;
-			} offset;
+			uint32_t offset;
 		};
 	} args = {0};
 	const size_t operandBytes = operandSize + 2;
@@ -1723,25 +1704,14 @@ static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	}
 
+	// Grab the segment and offset
 	if (!Fetch(state, operandBytes, args.imm))
 		return false;
+	InitImmediateUnsigned(&state->instr->operands[0], args.segment, 2);
+	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
 
 	state->instr->op = X86_CALLF;
 	state->instr->operandCount = 2;
-
-	// Store the segment first
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].size = 2;
-	state->instr->operands[0].immediate = args.segment;
-
-	// Now the offset
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].size = operandSize;
-
-	if (operandSize == 2)
-		state->instr->operands[0].immediate = SIGN_EXTEND64(args.offset.w, 2);
-	else
-		state->instr->operands[0].immediate = SIGN_EXTEND64(args.offset.d, 4);
 
 	return true;
 }
@@ -1790,16 +1760,13 @@ static bool DecodeTestImm(X86DecoderState* const state, uint8_t opcode)
 	imm = 0;
 	if (!Fetch(state, operandSize, (uint8_t*)&imm))
 		return false;
-
-	state->instr->op = X86_TEST;
-	state->instr->operandCount = 2;
-
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].size = operandSize;
-	state->instr->operands[1].immediate = imm;
+	InitImmediate(&state->instr->operands[1], imm, operandSize);
 
 	state->instr->operands[0].operandType = dests[operandSize >> 1];
 	state->instr->operands[0].size = operandSize;
+
+	state->instr->op = X86_TEST;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -1904,19 +1871,15 @@ static bool DecodeMovImm(X86DecoderState* const state, uint8_t opcode)
 	imm = 0;
 	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
+	InitImmediate(&state->instr->operands[1], imm, operandBytes);
 
 	// TODO: REX
 
-	state->instr->op = X86_MOV;
-	state->instr->operandCount = 2;
-
-	// Sign extend the immediate.
-	state->instr->operands[1].immediate = SIGN_EXTEND64(imm, operandBytes);
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].size = operandBytes;
-
 	state->instr->operands[0].size = operandBytes;
 	state->instr->operands[0].operandType = dests[operandBytes >> 1][operand];
+
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -1936,16 +1899,11 @@ static bool DecodeEnter(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 3, args.imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], args.size, 2);
+	InitImmediate(&state->instr->operands[1], args.level, 1);
 
 	state->instr->op = X86_ENTER;
-
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(args.size, 2);
-	state->instr->operands[0].size = 2;
-
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].immediate = SIGN_EXTEND64(args.level, 1);
-	state->instr->operands[1].size = 1;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -1975,11 +1933,9 @@ static bool DecodeReturn(X86DecoderState* const state, uint8_t opcode)
 	// Only fetch if the form requires an immediate
 	if (!Fetch(state, 2, (uint8_t*)&imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, 2);
 
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, 2);
-	state->instr->operands[0].size = 2;
 
 	return true;
 }
@@ -2000,13 +1956,10 @@ static bool DecodeInt(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &imm))
 		return false;
-
-	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[0].size = 1;
+	InitImmediate(&state->instr->operands[0], imm, 1);
 
 	state->instr->op = X86_INT;
+	state->instr->operandCount = 1;
 
 	return true;
 }
@@ -2047,12 +2000,10 @@ static bool DecodeCallJmpRelative(X86DecoderState* const state, uint8_t opcode)
 	imm = 0;
 	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, operandBytes);
 
 	state->instr->op = operations[operation];
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, operandBytes);
-	state->instr->operands[0].size = operandBytes;
 
 	return true;
 }
@@ -2065,16 +2016,13 @@ static bool DecodeJmpRelative(X86DecoderState* const state, uint8_t opcode)
 	uint64_t imm;
 	(void)opcode;
 
-
 	imm = 0;
 	if (!Fetch(state, operandBytes, (uint8_t*)&imm))
 		return false;
+	InitImmediate(&state->instr->operands[0], imm, operandBytes);
 
 	state->instr->op = X86_JMP;
 	state->instr->operandCount = 1;
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = SIGN_EXTEND64(imm, operandBytes);
-	state->instr->operands[0].size = operandBytes;
 
 	return true;
 }
@@ -2082,35 +2030,25 @@ static bool DecodeJmpRelative(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeJmpFar(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandBytes = g_decoderModeSizeXref[state->operandMode] + 2;
+	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	union
 	{
 		uint8_t bytes[6];
 		struct
 		{
 			uint16_t selector;
-			union
-			{
-				uint16_t w;
-				uint32_t d;
-			} offset;
+			uint32_t offset;
 		};
 	} args = {0};
+	const uint8_t operandBytes = operandSize + 2;
 
 	if (!Fetch(state, operandBytes, args.bytes))
 		return false;
+	InitImmediateUnsigned(&state->instr->operands[0], args.selector, 2);
+	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
 
 	state->instr->op = X86_JMP;
 	state->instr->operandCount = 2;
-
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = args.selector;
-
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	if (state->operandMode == X86_16BIT)
-		state->instr->operands[1].immediate = args.offset.w;
-	else
-		state->instr->operands[1].immediate = args.offset.d;
 
 	return true;
 }
@@ -2123,13 +2061,10 @@ static bool DecodeJmpRelativeByte(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediateUnsigned(&state->instr->operands[0], imm, 1);
 
 	state->instr->op = X86_JMP;
 	state->instr->operandCount = 1;
-
-	state->instr->operands[0].operandType = X86_IMMEDIATE;
-	state->instr->operands[0].immediate = imm;
-	state->instr->operands[0].size = 1;
 
 	return true;
 }
@@ -2495,6 +2430,7 @@ static bool DecodeGroup6(X86DecoderState* const state, uint8_t opcode)
 
 	reg = MODRM_REG(modRm);
 	state->instr->op = operations[reg];
+	state->instr->operandCount = 1;
 
 	return true;
 }
@@ -2522,11 +2458,11 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 			2, 0, 2, 1
 		};
 
-		if (!DecodeModRmRmFieldMemory(state, 2, &state->instr->operands[0], modRm))
+		if (!DecodeModRmRmFieldMemory(state, operandSizes[reg], &state->instr->operands[0], modRm))
 			return false;
 
 		state->instr->op = operations[reg];
-		state->instr->operands[0].size = operandSizes[reg];
+		state->instr->operandCount = 1;
 	}
 	else
 	{
@@ -2944,16 +2880,15 @@ static bool DecodeShiftd(X86DecoderState* const state, uint8_t opcode)
 	if (opcode & 1)
 	{
 		state->instr->operands[2].operandType = X86_CL;
+		state->instr->operands[2].size = 1;
 	}
 	else
 	{
 		uint8_t imm;
 		if (!Fetch(state, 1, &imm))
 			return false;
-		state->instr->operands[2].operandType = X86_IMMEDIATE;
-		state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
+		InitImmediate(&state->instr->operands[2], imm, 1);
 	}
-	state->instr->operands[2].size = 1;
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 3;
@@ -3093,13 +3028,10 @@ static bool DecodeCmpPacked(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[2], imm, 1);
 
 	state->instr->operands[0] = operands[1];
 	state->instr->operands[1] = operands[0];
-
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].size = 1;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
 
 	state->instr->op = X86_CMPPS;
 	state->instr->operandCount = 3;
@@ -3130,10 +3062,17 @@ static bool DecodeMovnti(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 {
-	static const uint8_t operandSizes[] = {4, 4, 8};
+	static const uint8_t operandSizes[4][3] =
+	{
+		{2, 2, 2},
+		{2, 2, 2},
+		{2, 2, 2},
+		{4, 4, 8}
+	};
 	uint8_t modRm;
 	uint8_t imm;
 	uint8_t operandSize;
+	uint8_t mod;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -3141,20 +3080,15 @@ static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 	// AMD docs call operand[1] Ew, but Intel docs say Ry/Mw
 	// ie only a word from memory but operand size reg.
 	// ntsd and ud86 follow the intel behavior
-	if (IsModRmRmFieldReg(modRm))
-		operandSize = operandSizes[state->operandMode];
-	else
-		operandSize = 2;
+	mod = MODRM_MOD(modRm);
+	operandSize = operandSizes[mod][state->operandMode];
 
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[2], imm, 1);
 	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
-
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[2].size = 1;
 
 	state->instr->op = X86_PINSRW;
 	state->instr->operandCount = 3;
@@ -3176,11 +3110,8 @@ static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[2], imm, 1);
 	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
-
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[2].size = 1;
 
 	state->instr->op = X86_PEXTRW;
 	state->instr->operandCount = 3;
@@ -3202,14 +3133,11 @@ static bool DecodeShufps(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[2], imm, 1);
 	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[0], modRm);
 
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[2].size = 1;
-
 	state->instr->op = X86_SHUFPS;
-	state->instr->operandCount = 2;
+	state->instr->operandCount = 3;
 
 	return true;
 }
@@ -3393,10 +3321,7 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &imm))
 		return false;
-
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[1].size = 1;
+	InitImmediate(&state->instr->operands[1], imm, 1);
 
 	state->instr->op = operations[reg];
 	state->instr->operandCount = 2;
@@ -3748,16 +3673,13 @@ static bool DecodePshuf(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &imm))
 		return false;
+	InitImmediate(&state->instr->operands[2], imm, 1);
 
 	state->instr->operands[0] = operands[1];
 	state->instr->operands[1] = operands[0];
 
-	state->instr->operands[2].operandType = X86_IMMEDIATE;
-	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[2].size = 1;
-
 	state->instr->op = X86_PSHUFW;
-	state->instr->operandCount = 2;
+	state->instr->operandCount = 3;
 
 	return true;
 }
@@ -3775,12 +3697,8 @@ static __inline bool DecodePackedSingleGroups(X86DecoderState* const state, cons
 		return false;
 	if (!Fetch(state, 1, &imm))
 		return false;
-
+	InitImmediate(&state->instr->operands[1], imm, 1);
 	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[0], modRm);
-
-	state->instr->operands[1].operandType = X86_IMMEDIATE;
-	state->instr->operands[1].immediate = SIGN_EXTEND64(imm, 1);
-	state->instr->operands[1].size = 1;
 
 	reg = MODRM_REG(modRm);
 	state->instr->op = operations[reg];
