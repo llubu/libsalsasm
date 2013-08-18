@@ -3074,7 +3074,7 @@ static bool DecodeCmpPacked(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[2].size = 1;
 	state->instr->operands[2].immediate = SIGN_EXTEND64(imm, 1);
 
-	state->instr->op = X86_CMPSS;
+	state->instr->op = X86_CMPPS;
 	state->instr->operandCount = 3;
 
 	return true;
