@@ -467,10 +467,11 @@ static bool DecodeIncDec(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	}
 
-	state->instr->op = ops[operation];
-	state->instr->operandCount = 1;
 	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][opcode & 7];
 	state->instr->operands[0].size = operandSize;
+
+	state->instr->op = ops[operation];
+	state->instr->operandCount = 1;
 
 	return true;
 }
@@ -482,11 +483,11 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 
 	// FIXME: REX prefix selects extended GPRs.
-	state->instr->op = operations[(opcode >> 3) & 1];
-	state->instr->operandCount = 1;
-
 	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][opcode & 7];
 	state->instr->operands[0].size = operandSize;
+
+	state->instr->op = operations[(opcode >> 3) & 1];
+	state->instr->operandCount = 1;
 
 	return true;
 }
@@ -499,23 +500,17 @@ static bool DecodeJmpConditional(X86DecoderState* const state, uint8_t opcode)
 		X86_JO, X86_JNO, X86_JB, X86_JNB, X86_JZ, X86_JNZ, X86_JBE, X86_JNBE,
 		X86_JS, X86_JNS, X86_JP, X86_JNP, X86_JL, X86_JNL, X86_JLE, X86_JNLE
 	};
-	const uint8_t operandSizes[2][3] =
+	static const uint8_t operandSizes[2][3] =
 	{
 		{1, 1, 1},
 		{2, 4, 4}
 	};
 	const uint8_t operandSizeBit = ((opcode >> 7) & 1);
 	const uint8_t operandSize = operandSizes[operandSizeBit][state->operandMode];
-	uint64_t offset;
 
 	// Grab the offset
-	offset = 0;
-	if (!Fetch(state, operandSize, (uint8_t*)&offset))
+	if (!DecodeImmediate(state, &state->instr->operands[0], operandSize))
 		return false;
-
-	// Sign extend to 64 bit
-	state->instr->operands[0].immediate = SIGN_EXTEND64(offset, operandSize);
-	state->instr->operands[0].size = operandSize;
 
 	state->instr->op = ops[opcode & 0xf];
 	state->instr->operandCount = 1;
@@ -706,14 +701,15 @@ static bool DecodeMovOffset(X86DecoderState* const state, uint8_t opcode)
 	if (!Fetch(state, offsetSize, (uint8_t*)&offset))
 		return false;
 
-	state->instr->op = X86_MOV;
-	state->instr->operandCount = 2;
 	state->instr->operands[operand0].size = operandSize;
 	state->instr->operands[operand1].size = operandSize;
 
 	state->instr->operands[operand0].operandType = rax[operandSize >> 1];
 	state->instr->operands[operand1].operandType = X86_MEM;
 	state->instr->operands[operand1].immediate = offset;
+
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
 
 	return true;
 }
