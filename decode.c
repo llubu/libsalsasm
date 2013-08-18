@@ -2673,12 +2673,16 @@ static bool DecodeFemms(X86DecoderState* const state, uint8_t opcode)
 
 static bool Decode3dnow(X86DecoderState* const state, uint8_t opcode)
 {
+	X86Operand operands[2] = {0};
 	uint8_t imm;
 
 	// 0f 0f [ModRM] [SIB] [displacement] imm8 opcode
 
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+	if (!DecodeModRmSimd(state, 8, operands))
 		return false;
+
+	state->instr->operands[0] = operands[1];
+	state->instr->operands[1] = operands[0];
 
 	if (!Fetch(state, 1, &imm))
 		return false;
@@ -4025,6 +4029,8 @@ static const InstructionDecoder g_secondaryDecoders[256] =
 
 static bool DecodeSecondaryOpCodeTable(X86DecoderState* const state, uint8_t opcode)
 {
+	const InstructionDecoder* decoderTable;
+
 	// Grab a byte from the machine
 	if (!Fetch(state, 1, &opcode))
 		return false;

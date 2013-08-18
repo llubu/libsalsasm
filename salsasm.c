@@ -88,7 +88,7 @@ static const char* const X86Mnemonics[] =
 	"pcmpgtw", "pcmpistri", "pcmpistrm", "pextrb", "pextrd", "pextrq",
 	"pextrw", "pfnacc", "pfpnacc", "pfcmpge", "pfmin", "pfrcp", "pfrsqrt", "pfmax",
 	"pfsqrt", "pfsub", "pfadd", "pfcmpgt", "pfrcpit1", "pfrsqit1", "pfsubr", "pfacc",
-	"pfcmpeq", "pfmul", "pfrcpit2", "pmulhwr", "pswapd", "pavgusb", 
+	"pfcmpeq", "pfmul", "pfrcpit2", "pmulhrw", "pswapd", "pavgusb", 
 	"phaddd", "phaddsw", "phaddw", "phminposuw", "phsubd", "phsubsw",
 	"phsubw", "pinsrb", "pinsrd", "pinsrq", "pinsrw", "pmaddubsw", "pmaddwd",
 	"pmaxsb", "pmaxsd", "pmaxsw", "pmaxub", "pmaxud", "pmaxuw", "pminsb",
