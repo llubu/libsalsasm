@@ -1468,9 +1468,7 @@ static bool DecodeImulImm(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	}
 	state->instr->operands[0] = operands[1];
-	state->instr->operands[0].size = operandSize;
 	state->instr->operands[1] = operands[0];
-	state->instr->operands[1].size = operandSize;
 
 	// Now grab the second source, an immediate
 	if (!DecodeImmediate(state, &state->instr->operands[2], immSize))
@@ -1571,8 +1569,11 @@ static bool DecodeMovGpr(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovSeg(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	static const X86OperandType segments[8] = {X86_ES, X86_CS, X86_SS, X86_DS, X86_FS, X86_GS, X86_NONE, X86_NONE};
-	X86Operand operands[2] = {0};
+	static const X86OperandType segments[8] =
+	{
+		X86_ES, X86_CS, X86_SS, X86_DS,
+		X86_FS, X86_GS, X86_NONE, X86_NONE
+	};
 	const uint8_t direction = (opcode >> 1) & 1;
 	uint8_t modRm;
 	uint8_t segment;
@@ -1593,9 +1594,12 @@ static bool DecodeMovSeg(X86DecoderState* const state, uint8_t opcode)
 		return false;
 
 	// Process the first operand
-	if (!DecodeModRmRmField(state, operandSize, operands, modRm))
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[operand0], modRm))
 		return false;
-	state->instr->operands[operand0] = operands[0];
+
+	// Can't load CS using the MOV instruction, only JMP/CALL
+	if ((direction == 0) && (state->instr->operands[0].operandType == X86_CS))
+		return false;
 
 	// Now process the second operand.
 	state->instr->operands[operand1].size = 2;
@@ -1951,7 +1955,7 @@ static bool DecodeCallJmpRelative(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t operandSizes[3] = {2, 4, 4};
 	const uint8_t operandBytes = operandSizes[state->operandMode];
-	static const X86Operation operations[2] = {X86_CALLN, X86_JMP};
+	static const X86Operation operations[2] = {X86_CALLN, X86_JMPN};
 	const uint8_t operation = opcode & 1;
 
 	(void)opcode;
@@ -1975,7 +1979,7 @@ static bool DecodeJmpRelative(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeImmediate(state, &state->instr->operands[0], operandBytes))
 		return false;
 
-	state->instr->op = X86_JMP;
+	state->instr->op = X86_JMPN;
 	state->instr->operandCount = 1;
 
 	return true;
@@ -2001,7 +2005,7 @@ static bool DecodeJmpFar(X86DecoderState* const state, uint8_t opcode)
 	InitImmediateUnsigned(&state->instr->operands[0], args.selector, 2);
 	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
 
-	state->instr->op = X86_JMP;
+	state->instr->op = X86_JMPF;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -2015,7 +2019,7 @@ static bool DecodeJmpRelativeByte(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
 		return false;
 
-	state->instr->op = X86_JMP;
+	state->instr->op = X86_JMPN;
 	state->instr->operandCount = 1;
 
 	return true;
@@ -2082,8 +2086,8 @@ static bool DecodeGroup5(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	static const X86Operation operations[8] =
 	{
-		X86_INC, X86_DEC, X86_CALLN, X86_CALLN,
-		X86_JMP, X86_JMP, X86_PUSH, X86_INVALID
+		X86_INC, X86_DEC, X86_CALLN, X86_CALLF,
+		X86_JMPN, X86_JMPF, X86_PUSH, X86_INVALID
 	};
 	uint8_t modRm;
 	uint8_t reg;
@@ -2388,6 +2392,7 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 	reg = MODRM_REG(modRm);
 	if (!IsModRmRmFieldReg(modRm))
 	{
+		static const uint8_t descriptorSizes[] = {6, 6, 10};
 		static const X86Operation operations[] =
 		{
 			X86_SGDT, X86_SIDT, X86_LGDT, X86_LIDT,
@@ -2395,8 +2400,10 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 		};
 		const uint8_t operandSizes[] =
 		{
-			2, 2, 2, 2,
-			2, 0, 2, 1
+			descriptorSizes[state->mode], descriptorSizes[state->mode],
+			descriptorSizes[state->mode], descriptorSizes[state->mode],
+			2, 0,
+			2, 1
 		};
 
 		if (!DecodeModRmRmFieldMemory(state, operandSizes[reg], &state->instr->operands[0], modRm))
@@ -2407,42 +2414,33 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 	}
 	else
 	{
-		static const X86Operation operations[8][8] =
+		static const X86Operation operations[64] =
 		{
-			{
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_MONITOR, X86_MWAIT, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_XGETBV, X86_XSETBV, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_VMRUN, X86_VMMCALL, X86_VMLOAD, X86_VMSAVE,
-				X86_STGI, X86_CLGI, X86_SKINIT, X86_INVLPGA
-			},
-			{
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			},
-			{
-				X86_SWAPGS, X86_RDTSCP, X86_INVALID, X86_INVALID,
-				X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
-			}
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_MONITOR, X86_MWAIT, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_XGETBV, X86_XSETBV, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_VMRUN, X86_VMMCALL, X86_VMLOAD, X86_VMSAVE,
+			X86_STGI, X86_CLGI, X86_SKINIT, X86_INVLPGA,
+
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
+
+			X86_SWAPGS, X86_RDTSCP, X86_INVALID, X86_INVALID,
+			X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID
 		};
-		uint8_t rm;
+		uint8_t regRm;
 
 		switch (reg)
 		{
@@ -2453,8 +2451,8 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 		case 2:
 		case 3:
 		case 7:
-			rm = MODRM_RM(modRm);
-			state->instr->op = operations[reg][rm];
+			regRm = (modRm & 0x3f);
+			state->instr->op = operations[regRm];
 			break;
 		case 4:
 			DecodeModRmRmFieldReg(state, 2, &state->instr->operands[0], modRm);
@@ -3234,6 +3232,7 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 		X86_INVALID, X86_INVALID, X86_INVALID, X86_INVALID,
 		X86_BT, X86_BTS, X86_BTR, X86_BTC
 	};
+	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
 	uint8_t reg;
 
@@ -3244,12 +3243,8 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 	if (operations[reg] == X86_INVALID)
 		return false;
 
-	if (!DecodeModRmRmField(state, g_decoderModeSizeXref[state->operandMode],
-		&state->instr->operands[0], modRm))
-	{
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
-	}
-
 	if (!DecodeImmediate(state, &state->instr->operands[1], 1))
 		return false;
 
