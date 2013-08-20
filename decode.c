@@ -3773,19 +3773,291 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 	return true;
 }
 
+static const InstructionDecoder g_secondaryDecodersF3[256] =
+{
+	// Row 0
+	DecodeGroup6, DecodeGroup7, DecodeLoadSegmentInfo, DecodeLoadSegmentInfo,
+	DecodeInvd, DecodeInvd, DecodeInvalid, DecodeUd2,
+
+	// Row 1
+	// DecodeMovss, DecodeMvsldup, DecodeInvalid, DecodeInvalid,
+	// DecodeInvalid, DecodeInvalid, DecodeMovshdup, DecodeInvalid,
+
+	// Row 2
+	DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, // Decodesi2ss, DecodeMovntss,
+	/* DecodeCvttss2si, DecodeCvtss2si */ DecodeInvalid, DecodeInvalid,
+
+	// Row 3
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys,
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeInvalid, DecodeInvalid,
+	Decode38Table, DecodeInvalid, Decode3aTable, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 4
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+
+	// Row 5
+	DecodeInvalid, // DecodeSqrtss, DecodeRsqrtss, DecodeRcpss,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	// DecodeAddss, DecodeMulps, DecodeCvtps2pd, DecodeCvtdq2ps,
+	// DecodeSubps, DecodeMinps, DecodeDivps, DecodeMaxps,
+
+	// Row 6
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, // DecodeMovdqu,
+
+	// Row 7
+	// DecodePshufhw, DecodeGroup12, DecodeGroup13, DecodeGroup14,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, /* DecodeMovq, DecodeMovdqu, */
+
+	// Row 8
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+
+	// Row 9
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+
+	// Row 0xa
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeCpuid, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeInvalid, DecodeInvalid,
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeRsm, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeGroup15, DecodeImul,
+
+	// Row 0xb
+	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
+	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 0xc
+	DecodeXadd, DecodeXadd, /* DecodeCmpss, */ DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeGroup9,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+
+	// Row 0xd
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, /* DecodeMovq2dq, */ DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 0xe
+	DecodeInvalid, DecodeInvalid, /* DecodeCvtdq2pd, */ DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 0xf
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeUd,
+
+};
+
 static const InstructionDecoder g_secondaryDecoders66[256] =
 {
-	DecodeInvalid,
+	// Row 0
+	DecodeGroup6, DecodeGroup7, DecodeLoadSegmentInfo, DecodeLoadSegmentInfo,
+	DecodeInvd, DecodeInvd, DecodeInvalid, DecodeUd2,
+
+	// Row 1
+	// DecodeMovupd, DecodeMovudp, DecodeMovlpd, DecodeMovlpd
+	// DecodeUnpcklpd, DecodeUnpckhpd, DecodeMovhpd, DecodeMovhpd,
+
+	// Row 2
+	DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	// DecodeMovapd, DecodeMovapd, DecodeCvtpi2d, DecodeMovntpd,
+	// DecodeCvttpd2pi, DecodeCvtpd2pi, DecodeUcomisd, DecodeComisd
+
+	// Row 3
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys,
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeInvalid, DecodeInvalid,
+	Decode38Table, DecodeInvalid, Decode3aTable, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 4
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+
+	// Row 5
+	/* DecodeMovmskpd, DecodeSqrtpd, */ DecodeInvalid, DecodeInvalid,
+	// DecodeAndpd, DecodeAndnpd, DecodeOrpd, DecodeXorpd,
+	// DecodeAddpd, DecodeMulpd, DecodeCvtpd2ps, DecodeCvtps2dq,
+	// DecodeSubpd, DecodeMinsd, DecodeDivsd, DecodeMaxsd,
+
+	// Row 6
+	// DecodePunpcklbw, DecodePunpcklwd, DecodePunpcklwd, DecodePacksswb,
+	// DecodePcmpgtb, DecodePcmpGtw, DecodePcmpGtd, DecodePackuswb,
+	// DecodePunpckhbw, DecodePunpckhwd, DecodePunpckhdq, DecodePackssdw,
+	// DecodePunpcklqdq, DecodePunpckhqdq, DecodeMovd, DecodeMovdqa,
+
+	// Row 7
+	// DecodePshufd, DecodeGroup12, DecodeGroup13, DecodeGroup14,
+	// DecodePcmpeqb, DecodePcmpeqw, DecodePcmpeqd, DecodeInvalid,
+	// DecodeGroup17, DecodeExtrq, DecodeInvalid, DecodeInvalid,
+	// DecodeHaddpd, DecodeHsubpd, DecodeMovd, DecodeMovdqa,
+
+	// Row 8
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+
+	// Row 9
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+
+	// Row 0xa
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeCpuid, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeInvalid, DecodeInvalid,
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeRsm, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeGroup15, DecodeImul,
+
+	// Row 0xb
+	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
+	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
+	DecodeInvalid, DecodeGroup10, DecodeGroup8, DecodeBt,
+	DecodeBitScan, DecodeBitScan, DecodeMovExtend, DecodeMovExtend,
+
+	// Row 0xc
+	DecodeXadd, DecodeXadd, /* DecodeCmppd, */ DecodeInvalid,
+	/* DecodePinsrw, DecodePextrw, DecodeShufpd, */ DecodeGroup9,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+
+	// Row 0xd
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, /* DecodeMovq2dq, */ DecodeInvalid,
+	/* Addsubpd, Psrlw, Psrld, Psrlq, */
+	/* Paddq, Pmullw, Movq, Pmovmskb, */
+
+	// Row 0xe
+	/* DecodePavgb, DecodePsraw, DecodePavgw, DecodePmulhuw, */
+	// DecodePmulhw, Decodemulhw, DecodeCvttpd2dq, DecodeMovntdq,
+	// DecodePsubsb, DecodePsubsw, DecodePminsw, DecodePor,
+	// DecodePaddsb, DecodePaddsw, DecodePmaxsw, DecodePxor,
+
+	// Row 0xf
+	DecodeInvalid, /* DecodePsslw, DecodePssld, DecodePsslq, */
+	/* DecodeMuludq, DecodePMaddwd, DecodePsadbw, DecodeMaskMovdqu */
+	// DecodePsubb, DecodePsubsw, DecodePsubd, DecodePsubq,
+	// DecodePaddb, DecodePaddw, DecodePaddd, DecodeUd
+
 };
 
 static const InstructionDecoder g_secondaryDecodersF2[256] =
 {
-	DecodeInvalid,
-};
+	// Row 0
+	DecodeGroup6, DecodeGroup7, DecodeLoadSegmentInfo, DecodeLoadSegmentInfo,
+	DecodeInvd, DecodeInvd, DecodeInvalid, DecodeUd2,
 
-static const InstructionDecoder g_secondaryDecodersF3[256] =
-{
-	DecodeInvalid,
+	// Row 1
+	// DecodeMovsd, DecodeMovsd, DecodeMovddup, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 2
+	DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, // DecodeCvtsi2sd, DecodeMovntsd,
+	// DecodeCvttsd2si, DecodeCvtsd2si, DecodeInvalid, DecodeInvalid,
+
+	// Row 3
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys, DecodeMsrTscSys,
+	DecodeMsrTscSys, DecodeMsrTscSys, DecodeInvalid, DecodeInvalid,
+	Decode38Table, DecodeInvalid, Decode3aTable, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 4
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
+
+	// Row 5
+	DecodeInvalid, /* DecodeSqrtsd, */ DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	// DecodeAddsd, DecodeMulsd, DecodeCvtsd2ss, DecodeInvalid,
+	// DecodeSubsd, DecodeMinsd, DecodeDivsd, DecodeMaxsd,
+
+	// Row 6
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 7
+	// DecodePshuflw, DecodeGroup12, DecodeGroup13, DecodeGroup14,
+	// DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	// DecodeInsertq, DecodeInsertq, DecodeInvalid, DecodeInvalid,
+	// DecodeHaddps, DecodeHsubps, DecodeInvalid, DecodeInvalid,
+
+	// Row 8
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
+
+	// Row 9
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+	DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte, DecodeFlagSetByte,
+
+	// Row 0xa
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeCpuid, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeInvalid, DecodeInvalid,
+	DecodePushPopFsGs, DecodePushPopFsGs, DecodeRsm, DecodeBt,
+	DecodeShiftd, DecodeShiftd, DecodeGroup15, DecodeImul,
+
+	// Row 0xb
+	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
+	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
+	/* DecodePopcnt, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	/* DecodeTzcnt, DecodeLzcnt, */ DecodeInvalid, DecodeInvalid,
+
+	// Row 0xc
+	DecodeXadd, DecodeXadd, /* DecodeCmpsd, */ DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeGroup9,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
+
+	// Row 0xd
+	/* Addsubps, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, /* DecodeMovdq2q, */ DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+
+	// Row 0xe
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, /* DecodeCvtpd2dq, */ DecodeInvalid,
+	// DecodePsubsb, DecodePsubsw, DecodePminsw, DecodePor,
+	// DecodePaddsb, DecodePaddsw, DecodePmaxsw, DecodePxor,
+
+	// Row 0xf
+	/* DecodeLddqu, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeUd,
+
 };
 
 static const InstructionDecoder g_secondaryDecoders[256] =
