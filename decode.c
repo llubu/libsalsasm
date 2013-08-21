@@ -1698,7 +1698,7 @@ static bool DecodeConvertSize(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
+static __inline bool DecodeFarOperand(X86DecoderState* const state)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	union
@@ -1711,6 +1711,19 @@ static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
 		};
 	} args = {0};
 	const size_t operandBytes = operandSize + 2;
+
+	// Grab the segment and offset
+	if (!Fetch(state, operandBytes, args.imm))
+		return false;
+	InitImmediateUnsigned(&state->instr->operands[0], args.segment, 2);
+	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
+
+	return true;
+}
+
+
+static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
+{
 	(void)opcode;
 
 	if (state->operandMode == X86_64BIT)
@@ -1719,11 +1732,7 @@ static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	}
 
-	// Grab the segment and offset
-	if (!Fetch(state, operandBytes, args.imm))
-		return false;
-	InitImmediateUnsigned(&state->instr->operands[0], args.segment, 2);
-	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
+	DecodeFarOperand(state);
 
 	state->instr->op = X86_CALLF;
 	state->instr->operandCount = 2;
@@ -2002,26 +2011,9 @@ static bool DecodeJmpRelative(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeJmpFar(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	union
-	{
-		uint8_t bytes[6];
-		struct
-		{
-			uint16_t selector;
-			uint32_t offset;
-		};
-	} args = {0};
-	const uint8_t operandBytes = operandSize + 2;
-
-	if (!Fetch(state, operandBytes, args.bytes))
-		return false;
-	InitImmediateUnsigned(&state->instr->operands[0], args.selector, 2);
-	InitImmediate(&state->instr->operands[1], args.offset, operandSize);
-
+	DecodeFarOperand(state);
 	state->instr->op = X86_JMPF;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
@@ -2080,7 +2072,6 @@ static bool DecodeGroup4(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
 	if (!DecodeModRmRmField(state, 1, &state->instr->operands[0], modRm))
 		return false;
 
