@@ -240,7 +240,7 @@ static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* re
 }
 
 
-static __inline bool ProcessOpcode(X86DecoderState* const state)
+static __inline bool ProcessPrimaryOpcode(X86DecoderState* const state)
 {
 	uint8_t opcode;
 
@@ -326,7 +326,6 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 		DecodeModRmRmFieldReg(state, operandSize, operand, modRm);
 		return true;
 	}
-
 	return DecodeModRmRmFieldMemory(state, operandSize, operand, modRm);
 }
 
@@ -334,7 +333,7 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 static __inline void DecodeModRmRegField(X86DecoderState* const state, uint8_t operandSize,
 	X86Operand* const operand, uint8_t modRm)
 {
-	const uint8_t reg = (modRm >> 3) & 7;
+	const uint8_t reg = MODRM_REG(modRm);
 	DecodeOperandGpr(operand, reg, operandSize);
 }
 
@@ -2119,7 +2118,7 @@ static bool DecodeSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 
 	state->instr->flags |= segments[rowBit][colBit];
 
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
@@ -2136,7 +2135,7 @@ static bool DecodeExtendedSegmentPrefix(X86DecoderState* const state, uint8_t op
 
 	state->instr->flags |= segments[colBit];
 
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
@@ -2148,7 +2147,7 @@ static bool DecodeOperandSizePrefix(X86DecoderState* const state, uint8_t opcode
 	state->operandMode = modes[state->operandMode];
 	state->instr->flags |= X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->secondaryTable = g_secondaryDecoders66;
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
@@ -2159,7 +2158,7 @@ static bool DecodeAddrSizePrefix(X86DecoderState* const state, uint8_t opcode)
 	state->lastBytePrefix = true;
 	state->mode = modes[state->operandMode];
 	state->instr->flags |= X86_FLAG_ADDR_SIZE_OVERRIDE;
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
@@ -2168,7 +2167,7 @@ static bool DecodeLockPrefix(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	state->lastBytePrefix = true;
 	state->instr->flags |= X86_FLAG_LOCK;
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
@@ -2186,7 +2185,7 @@ static bool DecodeRepPrefix(X86DecoderState* const state, uint8_t opcode)
 
 	state->secondaryTable = decoderTables[colBit];
 
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 static const InstructionDecoder g_primaryDecoders[256] =
@@ -2293,7 +2292,7 @@ static const InstructionDecoder g_primaryDecoders[256] =
 bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 {
 	state->secondaryTable = g_secondaryDecoders;
-	return ProcessOpcode(state);
+	return ProcessPrimaryOpcode(state);
 }
 
 
