@@ -479,22 +479,30 @@ static bool DecodeAscii(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodeIncDec(X86DecoderState* const state, uint8_t opcode)
+static bool DecodeInc(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation ops[2] = {X86_INC, X86_DEC};
-	const size_t operation = (opcode >> 3) & 1;
-
 	if (state->mode == X86_64BIT)
 	{
 		state->instr->flags |= X86_FLAG_INVALID_64BIT_MODE;
 		return false;
 	}
-
 	DecodeOneOperandOpcodeGpr(state, opcode);
-
-	state->instr->op = ops[operation];
+	state->instr->op = X86_INC;
 	state->instr->operandCount = 1;
+	return true;
+}
 
+
+static bool DecodeDec(X86DecoderState* const state, uint8_t opcode)
+{
+	if (state->mode == X86_64BIT)
+	{
+		state->instr->flags |= X86_FLAG_INVALID_64BIT_MODE;
+		return false;
+	}
+	DecodeOneOperandOpcodeGpr(state, opcode);
+	state->instr->op = X86_DEC;
+	state->instr->operandCount = 1;
 	return true;
 }
 
@@ -2235,10 +2243,10 @@ static const InstructionDecoder g_primaryDecoders[256] =
 	DecodePrimaryArithmeticImm, DecodePrimaryArithmeticImm, DecodeSegmentPrefix, DecodeAscii,
 
 	// Row 4
-	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
-	DecodeIncDec, DecodeIncDec, DecodeIncDec, DecodeIncDec,
+	DecodeInc, DecodeInc, DecodeInc, DecodeInc,
+	DecodeInc, DecodeInc, DecodeInc, DecodeInc,
+	DecodeDec, DecodeDec, DecodeDec, DecodeDec,
+	DecodeDec, DecodeDec, DecodeDec, DecodeDec,
 
 	// Row 5
 	DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr, DecodePushPopGpr,
@@ -3158,16 +3166,9 @@ static bool DecodeGroup9(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 {
-	// FIXME: REX
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	const uint8_t reg = (opcode & 7);
-
-	state->instr->operands[0].size = operandSize;
-	state->instr->operands[0].operandType = g_gprOperandTypes[operandSize >> 1][reg];
-
+	DecodeOneOperandOpcodeGpr(state, opcode);
 	state->instr->op = X86_BSWAP;
 	state->instr->operandCount = 1;
-
 	return true;
 }
 
