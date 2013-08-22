@@ -3582,6 +3582,116 @@ static bool DecodeSqrtsd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeRsqrtss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_RSQRTSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeRcpss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_RCPSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeAddss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_ADDSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeMulss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_MULSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeCvtss2sd(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_CVTSS2SD;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeCvttps2d(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_CVTTPS2D;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeSubss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_SUBSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeMinss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_MINSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeDivss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_DIVSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeMaxss(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_MAXSS;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
 static bool DecodePackedSingleSqrtLogical(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
@@ -3802,7 +3912,7 @@ static bool DecodeCvtPs2Pd(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
 		return false;
 
-	state->instr->op = X86_CVTPD2PS;
+	state->instr->op = X86_CVTPS2PD;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -3952,10 +4062,10 @@ static const InstructionDecoder g_secondaryDecodersF3[256] =
 	DecodeMovConditional, DecodeMovConditional, DecodeMovConditional, DecodeMovConditional,
 
 	// Row 5
-	DecodeInvalid, DecodeSqrtss, // DecodeRsqrtss, DecodeRcpss,
+	DecodeInvalid, DecodeSqrtss, DecodeRsqrtss, DecodeRcpss,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	// DecodeAddss, DecodeMulps, DecodeCvtps2pd, DecodeCvtdq2ps,
-	// DecodeSubps, DecodeMinps, DecodeDivps, DecodeMaxps,
+	DecodeAddss, DecodeMulss, DecodeCvtss2sd, DecodeCvttps2d,
+	DecodeSubss, DecodeMinss, DecodeDivss, DecodeMaxss,
 
 	// Row 6
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
