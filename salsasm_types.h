@@ -24,9 +24,7 @@
 
 #include "salsasm.h"
 
-typedef struct X86DecoderState X86DecoderState;
-
-typedef bool (*InstructionDecoder)(X86DecoderState* const state, uint8_t opcode);
+typedef enum SecondaryOpCodeTable SecondaryOpCodeTable;
 
 typedef enum X86DecoderMode
 {
@@ -35,7 +33,7 @@ typedef enum X86DecoderMode
 	X86_64BIT
 } X86DecoderMode;
 
-struct X86DecoderState
+typedef struct X86DecoderState
 {
 	X86Instruction* instr;
 	InstructionFetchCallback fetch;
@@ -45,7 +43,7 @@ struct X86DecoderState
 	X86DecoderMode operandMode;
 	bool lastBytePrefix;
 	bool prefixesDone;
-	const InstructionDecoder* secondaryTable;
-};
+	SecondaryOpCodeTable secondaryTable;
+} X86DecoderState;
 
 #endif /* __SALSASM_TYPES__ */
