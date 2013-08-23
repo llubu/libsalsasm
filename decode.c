@@ -373,6 +373,23 @@ static __inline bool DecodeModRmRev(X86DecoderState* const state, uint8_t operan
 }
 
 
+static __inline bool DecodeModRmDirection(X86DecoderState* const state, uint8_t operandSize, X86Operand* const operands, uint8_t direction)
+{
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
+	uint8_t modRm;
+
+	// Fetch the ModRM byte
+	if (!Fetch(state, 1, (uint8_t*)&modRm))
+		return false;
+	if (!DecodeModRmRmField(state, operandSize, &operands[operand0], modRm))
+		return false;
+	DecodeModRmRegField(state, operandSize, &operands[operand1], modRm);
+
+	return true;
+}
+
+
 static __inline bool DecodeImmediate(X86DecoderState* const state, X86Operand* const operand, uint8_t operandSize)
 {
 	uint64_t imm;
@@ -412,22 +429,16 @@ static bool DecodePrimaryArithmetic(X86DecoderState* const state, uint8_t opcode
 		X86_OR, X86_SBB, X86_SUB, X86_CMP
 	};
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
-	X86Operand operands[2] = {0};
 	const uint8_t direction = ((opcode & 2) >> 1);
 	const uint8_t operandSizeBit = (opcode & 1); // 1byte or default operand size
 	const size_t operation = ((opcode & 0x8) >> 1) | ((opcode >> 4) & 7);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
-	const uint8_t operand0 = direction;
-	const uint8_t operand1 = ((~direction) & 1);
 
 	state->instr->op = primaryOpCodeTableArithmetic[operation];
 	state->instr->operandCount = 2;
 
-	if (!DecodeModRm(state, operandSize, operands))
+	if (!DecodeModRmDirection(state, operandSize, state->instr->operands, direction))
 		return false;
-
-	state->instr->operands[operand0] = operands[0];
-	state->instr->operands[operand1] = operands[1];
 
 	return true;
 }
@@ -1560,20 +1571,14 @@ static bool DecodeMovGpr(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeBit = opcode & 1;
-	X86Operand operands[2] = {0};
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 	const uint8_t direction = ((opcode >> 1) & 1);
-	const uint8_t operand0 = direction;
-	const uint8_t operand1 = ((~direction) & 1);
 
-	if (!DecodeModRm(state, operandSize, operands))
+	if (!DecodeModRmDirection(state, operandSize, state->instr->operands, direction))
 		return false;
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
-
-	state->instr->operands[0] = operands[operand0];
-	state->instr->operands[1] = operands[operand1];
 
 	return true;
 }
@@ -2364,6 +2369,24 @@ static __inline bool DecodeModRmSimdRev(X86DecoderState* const state,
 }
 
 
+static __inline bool DecodeModRmSimdDirection(X86DecoderState* const state,
+	uint8_t operandSize, X86Operand* const operands, uint8_t direction)
+{
+	const uint8_t operand0 = ((~direction) & 1);
+	const uint8_t operand1 = direction;
+	uint8_t modRm;
+
+	// Fetch the ModRM byte
+	if (!Fetch(state, 1, (uint8_t*)&modRm))
+		return false;
+	if (!DecodeModRmRmFieldSimd(state, operandSize, &operands[operand0], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, operandSize, &operands[operand1], modRm);
+
+	return true;
+}
+
+
 static bool DecodeGroup6(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
@@ -2671,19 +2694,10 @@ static bool Decode3dnow(X86DecoderState* const state, uint8_t opcode)
 
 static __inline bool DecodeSimdDirectionOperands(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t direction = (opcode & 1);
+	const uint8_t direction = ((opcode) & 1);
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
-	const uint8_t operand0 = ((~direction) & 1);
-	const uint8_t operand1 = direction;
-	X86Operand operands[2] = {0};
 
-	if (!DecodeModRmSimd(state, operandSize, operands))
-		return false;
-
-	state->instr->operands[0] = operands[operand0];
-	state->instr->operands[1] = operands[operand1];
-
-	return true;
+	return DecodeModRmSimdDirection(state, operandSize, state->instr->operands, direction);
 }
 
 
@@ -2727,6 +2741,82 @@ static bool DecodeMovsd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeMovlpd(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t direction = (opcode & 1);
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
+	X86Operand operands[2] = {0};
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[operand1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[operand0], modRm);
+	state->instr->operands[operand0].size = 8;
+
+	state->instr->op = X86_MOVLPD;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMovhpd(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t direction = (opcode & 1);
+	const uint8_t operand0 = direction;
+	const uint8_t operand1 = ((~direction) & 1);
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[operand1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[operand0], modRm);
+	state->instr->operands[operand0].size = 8;
+
+	state->instr->op = X86_MOVHPD;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeUnpcklpd(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+		return false;
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
+	state->instr->op = X86_UNPCKLPD;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeUnpckhpd(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+		return false;
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
+	state->instr->op = X86_UNPCKHPD;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeUnalignedPackedSingle(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t direction = (opcode & 1);
@@ -2746,7 +2836,7 @@ static bool DecodeUnalignedPackedSingle(X86DecoderState* const state, uint8_t op
 		{
 			X86_MOVLPS, X86_UNPCKLPS, X86_MOVHPS
 		};
-		if (!DecodeModRmRmFieldMemory(state, operandSize, &operands[1], modRm))
+		if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[operand1], modRm))
 			return false;
 		state->instr->op = operations[op];
 	}
@@ -2756,16 +2846,13 @@ static bool DecodeUnalignedPackedSingle(X86DecoderState* const state, uint8_t op
 		{
 			X86_MOVHLPS, X86_UNPCKLPS, X86_MOVLHPS
 		};
-		DecodeModRmRmFieldSimdReg(state, operandSize, &operands[1], modRm);
+		DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[operand1], modRm);
 		state->instr->op = operations[op];
 	}
 
-	DecodeModRmRegFieldSimd(state, operandSize, &operands[0], modRm);
+	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[operand0], modRm);
 
 	state->instr->operandCount = 2;
-
-	state->instr->operands[operand0] = operands[0];
-	state->instr->operands[operand1] = operands[1];
 
 	return true;
 }
@@ -2970,9 +3057,6 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t op = ((opcode >> 3) & 1);
 	const uint8_t srcSize = srcSizes[operandSizeBit];
 	const uint8_t dstSize = g_decoderModeSizeXref[state->operandMode];
-	const uint8_t direction = (opcode & 1);
-	const uint8_t operand0 = direction;
-	const uint8_t operand1 = ((~direction) & 1);
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
@@ -3392,21 +3476,25 @@ static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode
 }
 
 
-static bool DecodeAlignedPackedSingle(X86DecoderState* const state, uint8_t opcode)
+static bool DecodeMovaps(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t direction = (opcode & 1);
-	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
-	X86Operand operands[2] = {0};
-	const uint8_t operand0 = ((~direction) & 1);
-	const uint8_t operand1 = direction;
-
-	if (!DecodeModRmSimd(state, operandSize, operands))
+	if (!DecodeSimdDirectionOperands(state, opcode))
 		return false;
 
-	state->instr->operands[operand0] = operands[0];
-	state->instr->operands[operand1] = operands[1];
-
 	state->instr->op = X86_MOVAPS;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMovapd(X86DecoderState* const state, uint8_t opcode)
+{
+
+	if (!DecodeSimdDirectionOperands(state, opcode))
+		return false;
+
+	state->instr->op = X86_MOVAPD;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -3828,14 +3916,10 @@ static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 static __inline bool DecodeMovSimd(X86DecoderState* const state, uint8_t opcode, X86Operation op, uint8_t operandSize)
 {
 	const uint8_t direction = ((opcode >> 4) & 1);
-	const uint8_t operand0 = ((~direction) & 1);
-	const uint8_t operand1 = direction;
 	X86Operand operands[2] = {0};
 
-	if (!DecodeModRmSimd(state, operandSize, operands))
+	if (!DecodeModRmSimdDirection(state, operandSize, operands, direction))
 		return false;
-	state->instr->operands[operand0] = operands[0];
-	state->instr->operands[operand1] = operands[1];
 
 	state->instr->op = op;
 	state->instr->operandCount = 2;
@@ -4242,8 +4326,8 @@ static const InstructionDecoder g_secondaryDecoders66[256] =
 	DecodeInvalid, DecodeGroupP, DecodeFemms, Decode3dnow,
 
 	// Row 1
-	DecodeMovupd, DecodeMovupd, // DecodeMovlpd, DecodeMovlpd
-	// DecodeUnpcklpd, DecodeUnpckhpd, DecodeMovhpd, DecodeMovhpd,
+	DecodeMovupd, DecodeMovupd, DecodeMovlpd, DecodeMovlpd,
+	DecodeUnpcklpd, DecodeUnpckhpd, DecodeMovhpd, DecodeMovhpd,
 	DecodeGroup16, DecodeNop, DecodeNop, DecodeNop,
 	DecodeNop, DecodeNop, DecodeNop, DecodeNop,
 
@@ -4308,7 +4392,7 @@ static const InstructionDecoder g_secondaryDecoders66[256] =
 	DecodeBitScan, DecodeBitScan, DecodeMovExtend, DecodeMovExtend,
 
 	// Row 0xc
-	DecodeXadd, DecodeXadd, /* DecodeCmppd, */ DecodeInvalid,
+	DecodeXadd, DecodeXadd, DecodeCmppd, DecodeInvalid,
 	/* DecodePinsrw, DecodePextrw, DecodeShufpd, */ DecodeGroup9,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
@@ -4407,7 +4491,7 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	/* DecodeTzcnt, DecodeLzcnt, */ DecodeInvalid, DecodeInvalid,
 
 	// Row 0xc
-	DecodeXadd, DecodeXadd, /* DecodeCmpsd, */ DecodeInvalid,
+	DecodeXadd, DecodeXadd, DecodeCmpsd, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeGroup9,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
@@ -4449,7 +4533,7 @@ static const InstructionDecoder g_secondaryDecodersNormal[256] =
 	// Row 2
 	DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose, DecodeMovSpecialPurpose,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	DecodeAlignedPackedSingle, DecodeAlignedPackedSingle, DecodeCvtPackedIntToPackedScalar, DecodeMovntps,
+	DecodeMovaps, DecodeMovaps, DecodeCvtPackedIntToPackedScalar, DecodeMovntps,
 	DecodeCvtPackedSingleToPackedInt, DecodeCvtPackedSingleToPackedInt, DecodeComis, DecodeComis,
 
 	// Row 3
