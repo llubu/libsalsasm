@@ -4298,6 +4298,46 @@ static bool DecodeMaxsd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodePunpcklbw(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+		return false;
+	state->instr->op = X86_PUNPCKLBW;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodePunpcklwd(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+		return false;
+	state->instr->op = X86_PUNPCKLWD;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodePunpckldq(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+		return false;
+	state->instr->op = X86_PUNPCKLDQ;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodePacksswb(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimd(state, 8, state->instr->operands))
+		return false;
+	state->instr->op = X86_PACKSSWB;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
 static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
@@ -4314,7 +4354,6 @@ static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
 	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
@@ -4639,13 +4678,11 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
 	if (IsModRmRmFieldReg(modRm))
 	{
 		// FIXME: These seem to nop on real hardware.
 		return false;
 	}
-
 	if (!DecodeModRmRmFieldMemory(state, 1, &state->instr->operands[0], modRm))
 		return false;
 
@@ -4817,7 +4854,7 @@ static const InstructionDecoder g_secondaryDecoders66[256] =
 	DecodeSubpd, DecodeMinpd, DecodeDivpd, DecodeMaxpd,
 
 	// Row 6
-	// DecodePunpcklbw, DecodePunpcklwd, DecodePunpcklwd, DecodePacksswb,
+	DecodePunpcklbw, DecodePunpcklwd, DecodePunpckldq, DecodePacksswb,
 	// DecodePcmpgtb, DecodePcmpGtw, DecodePcmpGtd, DecodePackuswb,
 	// DecodePunpckhbw, DecodePunpckhwd, DecodePunpckhdq, DecodePackssdw,
 	// DecodePunpcklqdq, DecodePunpckhqdq, DecodeMovd, DecodeMovdqa,
