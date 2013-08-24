@@ -4289,46 +4289,6 @@ static bool DecodeMaxsd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodePunpcklbw(X86DecoderState* const state, uint8_t opcode)
-{
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
-		return false;
-	state->instr->op = X86_PUNPCKLBW;
-	state->instr->operandCount = 2;
-	return true;
-}
-
-
-static bool DecodePunpcklwd(X86DecoderState* const state, uint8_t opcode)
-{
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
-		return false;
-	state->instr->op = X86_PUNPCKLWD;
-	state->instr->operandCount = 2;
-	return true;
-}
-
-
-static bool DecodePunpckldq(X86DecoderState* const state, uint8_t opcode)
-{
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
-		return false;
-	state->instr->op = X86_PUNPCKLDQ;
-	state->instr->operandCount = 2;
-	return true;
-}
-
-
-static bool DecodePacksswb(X86DecoderState* const state, uint8_t opcode)
-{
-	if (!DecodeModRmSimd(state, 8, state->instr->operands))
-		return false;
-	state->instr->op = X86_PACKSSWB;
-	state->instr->operandCount = 2;
-	return true;
-}
-
-
 static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
@@ -4337,17 +4297,23 @@ static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 		X86_PCMPGTB, X86_PCMPGTW, X86_PCMPGTD, X86_PACKUSWB,
 		X86_PUNPCKHBW, X86_PUNPCKHWD, X86_PUNPCKHDQ, X86_PACKSSDW
 	};
-	static const uint8_t operandSizes[] = {4, 4, 4, 8, 8, 8, 8, 8};
-	const uint8_t operandSizeSel = (opcode & 7);
+	static const uint8_t srcSizes[] = {4, 4, 4, 8, 8, 8, 8, 8};
+	static const uint8_t dstSizes[] = {8, 16};
+	const uint8_t srcSizeSel = (opcode & 7);
 	const uint8_t op = (opcode & 0xf);
-	const uint8_t operandSize = operandSizes[operandSizeSel];
+	const uint8_t srcSize = srcSizes[srcSizeSel];
+	const uint8_t dstSize = dstSizes[state->secondaryTable >> 1];
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(state, dstSize, &state->instr->operands[0], modRm);
+
+	// Lied about the size above to decode as SSE reg if the 66 prefix was used
+	// Now fix it up here.
+	state->instr->operands[0].size = 8;
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -4356,19 +4322,65 @@ static bool DecodePackUnpack(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodePunpcklqdq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!DecodeModRmRmFieldSimd(state, 8, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+
+	// Lied about the size above to decode as SSE reg since the 66 prefix was used
+	// Now fix it up here.
+	state->instr->operands[0].size = 8;
+
+	state->instr->op = X86_PUNPCKLQDQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodePunpckhqdq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!DecodeModRmRmFieldSimd(state, 8, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+
+	// Lied about the size above to decode as SSE reg since the 66 prefix was used
+	// Now fix it up here.
+	state->instr->operands[0].size = 8;
+
+	state->instr->op = X86_PUNPCKHQDQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 {
+	static const uint8_t operandSizes[] = {8, 16};
 	const uint8_t direction = ((opcode >> 4) & 1);
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	const uint8_t operandSize = operandSizes[state->secondaryTable >> 1];
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!DecodeModRmRmField(state, 4, &state->instr->operands[operand1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[operand0], modRm);
+	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[operand0], modRm);
+
+	// Lied about the operand size above to decode as SSE reg, now fix it up
+	state->instr->operands[operand0].size = 8;
 
 	state->instr->op = X86_MOVD;
 	state->instr->operandCount = 2;
@@ -4401,6 +4413,12 @@ static bool DecodeMovq(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovdqu(X86DecoderState* const state, uint8_t opcode)
 {
 	return DecodeMovSimd(state, opcode, X86_MOVDQU, 16);
+}
+
+
+static bool DecodeMovdqa(X86DecoderState* const state, uint8_t opcode)
+{
+	return DecodeMovSimd(state, opcode, X86_MOVDQA, 16);
 }
 
 
@@ -4835,10 +4853,10 @@ static const InstructionDecoder g_secondaryDecoders66[256] =
 	DecodeSubpd, DecodeMinpd, DecodeDivpd, DecodeMaxpd,
 
 	// Row 6
-	DecodePunpcklbw, DecodePunpcklwd, DecodePunpckldq, DecodePacksswb,
-	// DecodePcmpgtb, DecodePcmpGtw, DecodePcmpGtd, DecodePackuswb,
-	// DecodePunpckhbw, DecodePunpckhwd, DecodePunpckhdq, DecodePackssdw,
-	// DecodePunpcklqdq, DecodePunpckhqdq, DecodeMovd, DecodeMovdqa,
+	DecodePackUnpack, DecodePackUnpack, DecodePackUnpack, DecodePackUnpack,
+	DecodePackUnpack, DecodePackUnpack, DecodePackUnpack, DecodePackUnpack,
+	DecodePackUnpack, DecodePackUnpack, DecodePackUnpack, DecodePackUnpack,
+	DecodePunpcklqdq, DecodePunpckhqdq, DecodeMovd, DecodeMovdqa,
 
 	// Row 7
 	DecodePshufd, DecodeGroup12, DecodeGroup13, DecodeGroup14,
