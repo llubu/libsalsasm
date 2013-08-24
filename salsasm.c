@@ -46,7 +46,7 @@ static const char* const X86Mnemonics[] =
 	"cvtsd2si", "cvtsd2ss", "cvtsi2sd", "cvtsi2ss", "cvtss2sd", "cvtss2si",
 	"cvttpd2dq", "cvttpd2pi", "cvttps2dq", "cvttps2pi", "cvttsd2si", "cvttss2si",
 	"cvttps2d", "cwd", "cdq", "cqo", "daa", "dec", "div", "divpd",
-	"divps", "divsd", "divss", "dppd", "emms", "extractps",
+	"divps", "divsd", "divss", "dppd", "emms", "extractps", "extrq",
 	"f2xm1", "fabs", "fadd", "faddp", "fbld", "fbstp", "fchs", "fclex",
 	"fcmovb", "fcmovbe", "fcmove", "fcmovnb", "fcmovnbe", "fcmovne", "fcmovnu",
 	"fcmovu", "fcom", "fcom2", "fcomi", "fcomip", "fcomp3", "fcomp5",
