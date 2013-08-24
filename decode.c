@@ -606,20 +606,14 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation ops[3] = {X86_ARPL, X86_ARPL, X86_MOVSXD};
-	X86Operand operands[2] = {0};
 	const uint8_t opSize[3] = {2, 2, g_decoderModeSizeXref[state->operandMode]};
 	static const uint8_t order[3] = {0, 0, 1};
-	const size_t operand0 = order[state->mode];
-	const size_t operand1 = ((~order[state->mode]) & 1);
 
 	state->instr->op = ops[state->mode];
 	state->instr->operandCount = 2;
 
-	if (!DecodeModRm(state, opSize[state->mode], operands))
+	if (!DecodeModRmDirection(state, opSize[state->mode], state->instr->operands, order[state->mode]))
 		return false;
-
-	state->instr->operands[0] = operands[operand0];
-	state->instr->operands[1] = operands[operand1];
 
 	return true;
 }
@@ -2748,7 +2742,6 @@ static bool DecodeMovlpd(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
-	X86Operand operands[2] = {0};
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
@@ -2823,7 +2816,6 @@ static bool DecodeUnalignedPackedSingle(X86DecoderState* const state, uint8_t op
 	const uint8_t direction = (opcode & 1);
 	const uint8_t op = ((opcode & 7) >> 1) - 1;
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
-	X86Operand operands[2] = {0};
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
 	uint8_t modRm;
@@ -3810,7 +3802,6 @@ static bool DecodeMovConditional(X86DecoderState* const state, uint8_t opcode)
 	};
 	const uint8_t op = (opcode & 0xf);
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	X86Operand operands[2] = {0};
 
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
@@ -4372,17 +4363,12 @@ static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operand1 = ((~direction) & 1);
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
-	X86Operand operands[2] = {0};
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
-	if (!DecodeModRmRmField(state, 4, &operands[1], modRm))
+	if (!DecodeModRmRmField(state, 4, &state->instr->operands[operand1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &operands[0], modRm);
-
-	state->instr->operands[operand0] = operands[0];
-	state->instr->operands[operand1] = operands[1];
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[operand0], modRm);
 
 	state->instr->op = X86_MOVD;
 	state->instr->operandCount = 2;
@@ -4391,12 +4377,12 @@ static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static __inline bool DecodeMovSimd(X86DecoderState* const state, uint8_t opcode, X86Operation op, uint8_t operandSize)
+static __inline bool DecodeMovSimd(X86DecoderState* const state, uint8_t opcode,
+	X86Operation op, uint8_t operandSize)
 {
 	const uint8_t direction = ((opcode >> 4) & 1);
-	X86Operand operands[2] = {0};
 
-	if (!DecodeModRmSimdDirection(state, operandSize, operands, direction))
+	if (!DecodeModRmSimdDirection(state, operandSize, state->instr->operands, direction))
 		return false;
 
 	state->instr->op = op;
@@ -4420,15 +4406,10 @@ static bool DecodeMovdqu(X86DecoderState* const state, uint8_t opcode)
 
 static __inline bool DecodePshuf(X86DecoderState* const state, X86Operation op, uint8_t operandSize)
 {
-	X86Operand operands[2] = {0};
-
-	if (!DecodeModRmSimd(state, operandSize, operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-
-	state->instr->operands[0] = operands[1];
-	state->instr->operands[1] = operands[0];
 
 	state->instr->op = op;
 	state->instr->operandCount = 3;
