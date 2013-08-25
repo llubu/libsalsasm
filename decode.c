@@ -4725,33 +4725,35 @@ static bool DecodeGroup14(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup17(X86DecoderState* const state, uint8_t opcode)
 {
+	uint8_t modRm;
 	union
 	{
-		uint8_t bytes[3];
+		uint8_t bytes[2];
 		struct
 		{
-			uint8_t modRm;
 			uint8_t imm1;
 			uint8_t imm2;
 		};
 	} args;
 
-	if (!Fetch(state, 3, args.bytes))
+	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (MODRM_REG(args.modRm) != 0)
+	if (MODRM_REG(modRm) != 0)
 		return false;
-	if (IsModRmRmFieldReg(args.modRm))
+	if (IsModRmRmFieldReg(modRm))
 	{
 		// Lie and decode operands as 16 bytes to get SSE reg, then fix size up after
-		DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[0], args.modRm);
+		DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[0], modRm);
 		state->instr->operands[0].size = 8;
 	}
 	else
 	{
-		if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[1], args.modRm))
+		if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[1], modRm))
 			return false;
 	}
 
+	if (!Fetch(state, 2, args.bytes))
+		return false;
 	InitImmediate(&state->instr->operands[1], args.imm1, 8);
 	InitImmediate(&state->instr->operands[2], args.imm2, 8);
 
@@ -4807,7 +4809,7 @@ static bool DecodeInsertqImm(X86DecoderState* const state, uint8_t opcode)
 {
 	union
 	{
-		uint8_t bytes[3];
+		uint8_t bytes[2];
 		struct
 		{
 			uint8_t modRm;
@@ -5012,7 +5014,7 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovsldup(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0];
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MOVSLDUP;
 	state->instr->operandCount = 2;
@@ -5034,7 +5036,7 @@ static bool DecodeMovshdup(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovddup(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0];
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
 	state->instr->op = X86_MOVDDUP;
