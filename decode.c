@@ -3065,6 +3065,39 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodePopcnt(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	if (!DecodeModRm(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_POPCNT;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeTzcnt(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	if (!DecodeModRm(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_TZCNT;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeLzcnt(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	if (!DecodeModRm(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->op = X86_LZCNT;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
 static bool DecodeXadd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->operandMode]};
@@ -3274,16 +3307,74 @@ static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeAddSubPacked(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	static const X86Operation operations[] = {X86_ADDSUBPD, X86_ADDSUBPS};
+	const uint8_t op = (state->secondaryTable >> 2);
+
+	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+		return false;
+
+	state->instr->op = operations[op];
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeLddqu(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+
+	state->instr->op = X86_LDDQU;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeMovq2dq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
 	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
 	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVQ2DQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMovdq2q(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
+
+	// Decode as 16 byte operand to get SSE reg, then fix up the size here
+	state->instr->operands[1].size = 8;
+
+	state->instr->op = X86_MOVDQ2Q;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -3302,8 +3393,34 @@ static bool DecodeCvtdq2pd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeCvttpd2dq(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
+		return false;
+
+	state->instr->op = X86_CVTTPD2DQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeCvtpd2dq(X86DecoderState* const state, uint8_t opcode)
+{
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
+		return false;
+
+	state->instr->op = X86_CVTPD2DQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeMovmskb(X86DecoderState* const state, uint8_t opcode)
 {
+	static const uint8_t operandSizes[] = {8, 16};
+	const uint8_t operandSize = operandSizes[state->secondaryTable >> 1];
 	uint8_t modRm;
 
 	if (!Fetch(state, 1, &modRm))
@@ -3311,7 +3428,7 @@ static bool DecodeMovmskb(X86DecoderState* const state, uint8_t opcode)
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
 
-	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
+	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[1], modRm);
 	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_PMOVMSKB;
@@ -3340,6 +3457,25 @@ static bool DecodeMovntq(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeMovntdq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[0], modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[1], modRm);
+
+	state->instr->op = X86_MOVNTDQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodeMaskMovq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
@@ -3348,10 +3484,28 @@ static bool DecodeMaskMovq(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
 	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MASKMOVQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
+static bool DecodeMaskMovdqu(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
+
+	state->instr->op = X86_MASKMOVDQU;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -3366,7 +3520,7 @@ static bool DecodeUd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodeMmxArithmetic(X86DecoderState* const state, uint8_t opcode)
+static bool DecodeSimdArithmetic(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] =
 	{
@@ -3388,9 +3542,11 @@ static bool DecodeMmxArithmetic(X86DecoderState* const state, uint8_t opcode)
 		X86_PSUBB, X86_PSUBW, X86_PSUBD, X86_PSUBQ,
 		X86_PADDB, X86_PADDW, X86_PADDD, X86_INVALID
 	};
+	static const uint8_t operandSizes[] = {8, 16};
 	const uint8_t op = (opcode - 0xd0) | (opcode & 0xf);
+	const uint8_t operandSize = operandSizes[state->secondaryTable >> 1];
 
-	if (!DecodeModRmSimdRev(state, 8, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 
 	state->instr->op = operations[op];
@@ -4647,6 +4803,61 @@ static bool DecodeHaddHsubPacked(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeInsertqImm(X86DecoderState* const state, uint8_t opcode)
+{
+	union
+	{
+		uint8_t bytes[3];
+		struct
+		{
+			uint8_t modRm;
+			uint8_t imm1;
+			uint8_t imm2;
+		};
+	} args;
+
+	if (!Fetch(state, 3, args.bytes))
+		return false;
+	if (!IsModRmRmFieldReg(args.modRm))
+		return false;
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], args.modRm);
+	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], args.modRm);
+
+	// This encoding is for 8 bytes of 2 SSE regs. Decode as 16 byte above and fixup size here
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
+	InitImmediate(&state->instr->operands[2], args.imm1, 1);
+	InitImmediate(&state->instr->operands[3], args.imm2, 1);
+
+	state->instr->op = X86_INSERTQ;
+	state->instr->operandCount = 4;
+
+	return true;
+}
+
+
+static bool DecodeInsertq(X86DecoderState* const state, uint8_t opcode)
+{
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
+	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+
+	// Lied about the size to decode as SSE reg. Fix it up here.
+	state->instr->operands[0].size = 8;
+
+	state->instr->op = X86_INSERTQ;
+	state->instr->operandCount = 2;
+
+	return true;
+}
+
+
 static bool DecodePackedCmp(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[3] = {X86_PCMPEQB, X86_PCMPEQW, X86_PCMPEQD};
@@ -4815,6 +5026,18 @@ static bool DecodeMovshdup(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MOVSHDUP;
+	state->instr->operandCount = 2;
+	return true;
+}
+
+
+static bool DecodeMovddup(X86DecoderState* const state, uint8_t opcode)
+{
+	const uint8_t operandSize = g_sseOperandSizes[0];
+	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+		return false;
+	state->instr->operands[0].size = 16;
+	state->instr->op = X86_MOVDDUP;
 	state->instr->operandCount = 2;
 	return true;
 }
@@ -5000,22 +5223,22 @@ static const InstructionDecoder g_secondaryDecoders66[256] =
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 
 	// Row 0xd
-	// DecodeAddsubpd, DecodePsrlw, DecodePsrld, DecodePsrlq,
-	// DecodePaddq, DecodePmullw, DeecodeMovq, DecodePmovmskb,
-	// DecodePsubusb, DecodePsubusw, DecodePminub, DecodePand,
-	// DecodePaddusb, DecodePaddusw, DecodePMaxub, DecodePandn,
+	DecodeAddSubPacked, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeMovq, DecodeMovmskb,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
 
 	// Row 0xe
-	// DecodePavgb, DecodePsraw, DecodePavgw, DecodePmulhuw,
-	// DecodePmulhw, Decodemulhw, DecodeCvttpd2dq, DecodeMovntdq,
-	// DecodePsubsb, DecodePsubsw, DecodePminsw, DecodePor,
-	// DecodePaddsb, DecodePaddsw, DecodePmaxsw, DecodePxor,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeCvttpd2dq, DecodeMovntdq,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
 
 	// Row 0xf
-	DecodeInvalid, /* DecodePsslw, DecodePssld, DecodePsslq, */
-	/* DecodeMuludq, DecodePMaddwd, DecodePsadbw, DecodeMaskMovdqu */
-	// DecodePsubb, DecodePsubsw, DecodePsubd, DecodePsubq,
-	// DecodePaddb, DecodePaddw, DecodePaddd, DecodeUd
+	DecodeInvalid, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeMaskMovdqu,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeUd,
 };
 
 static const InstructionDecoder g_secondaryDecodersF2[256] =
@@ -5027,7 +5250,7 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	DecodeInvalid, DecodeGroupP, DecodeFemms, Decode3dnow,
 
 	// Row 1
-	DecodeMovsd, DecodeMovsd, /* DecodeMovddup, */ DecodeInvalid,
+	DecodeMovsd, DecodeMovsd, DecodeMovddup, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeGroup16, DecodeNop, DecodeNop, DecodeNop,
 	DecodeNop, DecodeNop, DecodeNop, DecodeNop,
@@ -5065,8 +5288,8 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	// Row 7
 	DecodePshuflw, DecodeGroup12, DecodeGroup13, DecodeGroup14,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	// DecodeInsertq, DecodeInsertq, DecodeInvalid, DecodeInvalid,
-	// DecodeHaddps, DecodeHsubps, DecodeInvalid, DecodeInvalid,
+	DecodeInsertqImm, DecodeInsertq, DecodeInvalid, DecodeInvalid,
+	DecodeHaddHsubPacked, DecodeHaddHsubPacked, DecodeInvalid, DecodeInvalid,
 
 	// Row 8
 	DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional, DecodeJmpConditional,
@@ -5089,8 +5312,8 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	// Row 0xb
 	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
 	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
-	/* DecodePopcnt, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	/* DecodeTzcnt, DecodeLzcnt, */ DecodeInvalid, DecodeInvalid,
+	DecodePopcnt, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeTzcnt, DecodeLzcnt, DecodeInvalid, DecodeInvalid,
 
 	// Row 0xc
 	DecodeXadd, DecodeXadd, DecodeCmpsd, DecodeInvalid,
@@ -5099,19 +5322,19 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 
 	// Row 0xd
-	/* Addsubps, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	DecodeInvalid, DecodeInvalid, /* DecodeMovdq2q, */ DecodeInvalid,
+	DecodeAddSubPacked, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeMovdq2q, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 0xe
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	DecodeInvalid, DecodeInvalid, /* DecodeCvtpd2dq, */ DecodeInvalid,
-	// DecodePsubsb, DecodePsubsw, DecodePminsw, DecodePor,
-	// DecodePaddsb, DecodePaddsw, DecodePmaxsw, DecodePxor,
+	DecodeInvalid, DecodeInvalid, DecodeCvtpd2dq, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 0xf
-	/* DecodeLddqu, */ DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeLddqu, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeUd,
@@ -5199,22 +5422,22 @@ static const InstructionDecoder g_secondaryDecodersNormal[256] =
 	DecodeBswap, DecodeBswap, DecodeBswap, DecodeBswap,
 
 	// Row 0xd
-	DecodeInvalid, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeInvalid, DecodeMovmskb,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeInvalid, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeInvalid, DecodeMovmskb,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
 
 	// Row 0xe
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeInvalid, DecodeMovntq,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeInvalid, DecodeMovntq,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
 
 	// Row 0xf
-	DecodeInvalid, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMaskMovq,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic,
-	DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeMmxArithmetic, DecodeUd,
+	DecodeInvalid, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeMaskMovq,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic,
+	DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeSimdArithmetic, DecodeUd,
 };
 
 
