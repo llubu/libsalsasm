@@ -3068,7 +3068,7 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 static bool DecodePopcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	if (!DecodeModRm(state, operandSize, state->instr->operands))
+	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_POPCNT;
 	state->instr->operandCount = 2;
@@ -3079,7 +3079,7 @@ static bool DecodePopcnt(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeTzcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	if (!DecodeModRm(state, operandSize, state->instr->operands))
+	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_TZCNT;
 	state->instr->operandCount = 2;
@@ -3090,7 +3090,7 @@ static bool DecodeTzcnt(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeLzcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	if (!DecodeModRm(state, operandSize, state->instr->operands))
+	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_LZCNT;
 	state->instr->operandCount = 2;
@@ -3311,9 +3311,9 @@ static bool DecodeAddSubPacked(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	static const X86Operation operations[] = {X86_ADDSUBPD, X86_ADDSUBPS};
-	const uint8_t op = (state->secondaryTable >> 2);
+	const uint8_t op = (state->secondaryTable & 1);
 
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 
 	state->instr->op = operations[op];
@@ -4651,7 +4651,7 @@ static bool DecodePackssdw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpcklqdq(X86DecoderState* const state, uint8_t opcode)
 {
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
 	state->instr->operands[1].size = 8;
@@ -4663,7 +4663,7 @@ static bool DecodePunpcklqdq(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckhqdq(X86DecoderState* const state, uint8_t opcode)
 {
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
 	state->instr->operands[1].size = 8;
@@ -4702,20 +4702,30 @@ static __inline bool DecodeMovSimd(X86DecoderState* const state, uint8_t opcode,
 	X86Operation op, uint8_t operandSize)
 {
 	const uint8_t direction = ((opcode >> 4) & 1);
-
 	if (!DecodeModRmSimdDirection(state, operandSize, state->instr->operands, direction))
 		return false;
-
 	state->instr->op = op;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
 
 static bool DecodeMovq(X86DecoderState* const state, uint8_t opcode)
 {
-	return DecodeMovSimd(state, opcode, X86_MOVQ, 8);
+	static const uint8_t regSizes[2] = {16, 8};
+	const uint8_t regSel = (opcode & 1);
+	const uint8_t regSize = regSizes[regSel];
+	const uint8_t direction = (((opcode >> 4) & opcode) & 1);
+
+	if (!DecodeModRmSimdDirection(state, regSize, state->instr->operands, direction))
+		return false;
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
+	state->instr->op = X86_MOVQ;
+	state->instr->operandCount = 2 ;
+
+	return true;
 }
 
 
@@ -4770,7 +4780,12 @@ static bool DecodePshufd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePshuflw(X86DecoderState* const state, uint8_t opcode)
 {
-	return DecodePshuf(state, X86_PSHUFLW, 8);
+	// This uses half SSE registers. Decode as 16 byte then replace operand size
+	if (!DecodePshuf(state, X86_PSHUFLW, 16))
+		return false;
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+	return true;
 }
 
 
@@ -4923,9 +4938,9 @@ static bool DecodeHaddHsubPacked(X86DecoderState* const state, uint8_t opcode)
 	};
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	const uint8_t opcodeColBit = (opcode & 1);
-	const uint8_t opcodeRowBit = ((state->secondaryTable >> 2) & 1);
+	const uint8_t opcodeRowBit = (state->secondaryTable & 1);
 
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 
 	state->instr->op = operations[opcodeRowBit][opcodeColBit];
@@ -5246,8 +5261,8 @@ static const InstructionDecoder g_secondaryDecodersF3[256] =
 	// Row 0xb
 	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
 	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
-	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodePopcnt, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeTzcnt, DecodeLzcnt, DecodeInvalid, DecodeInvalid,
 
 	// Row 0xc
 	DecodeXadd, DecodeXadd, DecodeCmpss, DecodeInvalid,
@@ -5444,8 +5459,8 @@ static const InstructionDecoder g_secondaryDecodersF2[256] =
 	// Row 0xb
 	DecodeCmpxchg, DecodeCmpxchg, DecodeLss, DecodeBt,
 	DecodeLfs, DecodeLgs, DecodeMovExtend, DecodeMovExtend,
-	DecodePopcnt, DecodeInvalid, DecodeInvalid, DecodeInvalid,
-	DecodeTzcnt, DecodeLzcnt, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 0xc
 	DecodeXadd, DecodeXadd, DecodeCmpsd, DecodeInvalid,
