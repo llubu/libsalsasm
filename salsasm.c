@@ -170,7 +170,7 @@ static const char* const X86Mnemonics[] =
 	"vmclear", "vmlaunch", "vmptrld", "vmptrst", "vmread", "vmfunc",
 	"vmresume", "vmwrite", "vmxoff", "vmxon",
 	"vmload", "vmmcall", "vmrun", "vmsave",
-	"wbinvd", "wrmsr", "xadd", "xchg", "xgetbv", "xlat",
+	"wbinvd", "wrmsr", "xabort", "xadd", "xbegin", "xchg", "xgetbv", "xlat",
 	"xlatb", "xor", "xorpd", "xorps", "xrstor", "xsave", "xsaveopt", "xsetbv"
 };
 

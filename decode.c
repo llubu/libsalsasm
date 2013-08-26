@@ -585,19 +585,21 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation ops[3] = {X86_BOUND, X86_BOUND, X86_INVALID};
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	uint8_t modRm;
+
+	if (ops[state->mode] == X86_INVALID)
+		return false;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegField(state, operandSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = ops[state->mode];
 	state->instr->operandCount = 2;
-
-	if (state->instr->op == X86_INVALID)
-		return false;
-
-	// Operands are reversed. Yay Intel!
-	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
-		return false;
-
-	if (state->instr->operands[1].operandType != X86_MEM)
-		return false;
 
 	return true;
 }
@@ -640,32 +642,36 @@ static bool DecodeGroup1(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation group1Operations[] =
 	{
-		X86_ADD, X86_OR, X86_ADC, X86_SBB, X86_AND, X86_SUB, X86_XOR, X86_CMP
+		X86_ADD, X86_OR, X86_ADC, X86_SBB,
+		X86_AND, X86_SUB, X86_XOR, X86_CMP
 	};
-	uint8_t modRm;
-	uint8_t reg;
-	const uint8_t width = (opcode & 1);
 	static const uint8_t operandSizes[2][3] =
 	{
 		{1, 1, 1},
 		{2, 4, 8}
 	};
-	const uint8_t operandSize = operandSizes[width][state->operandMode];
+	static const uint8_t immSizes[] = {2, 4, 4};
+	const uint8_t immOperandSizes[] = {1, immSizes[state->operandMode], 1, 1};
+	const uint8_t width = (opcode & 1);
+	const uint8_t immOperandSizeBits = (opcode & 3);
+	const uint8_t dstSize = operandSizes[width][state->operandMode];
+	const uint8_t immSize = immOperandSizes[immOperandSizeBits];
+	uint8_t modRm;
+	uint8_t reg;
 
 	// Fetch the modrm byte
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	reg = ((modRm >> 3) & 7);
-
-	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
+	if (!DecodeModRmRmField(state, dstSize, &state->instr->operands[0], modRm))
 		return false;
 
 	// Operation is encoded in the reg field
+	reg = MODRM_REG(modRm);
 	state->instr->op = group1Operations[reg];
 	state->instr->operandCount = 2;
 
 	// Fetch and decode the source
-	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
+	if (!DecodeImmediate(state, &state->instr->operands[1], immSize))
 		return false;
 
 	return true;
@@ -675,7 +681,7 @@ static bool DecodeGroup1(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeTestXchgModRm(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation ops[2] = {X86_TEST, X86_XCHG};
-	const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->mode]};
+	const uint8_t operandSizes[] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeSel = (opcode & 1);
 	const size_t operation = ((opcode >> 1) & 1);
 	const uint8_t operandSize = operandSizes[operandSizeSel];
@@ -721,7 +727,7 @@ static bool DecodeMovOffset(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t sizeBit = opcode & 1;
 	const uint8_t orderBit = (opcode >> 1) & 1;
 	const uint8_t operandSize = operandSizes[sizeBit];
-	const uint8_t offsetSize = g_decoderModeSizeXref[state->mode];
+	const uint8_t offsetSize = g_decoderModeSizeXref[state->operandMode];
 	const uint8_t operand0 = g_operandOrder[orderBit][0];
 	const uint8_t operand1 = g_operandOrder[orderBit][1];
 
@@ -786,12 +792,17 @@ static bool DecodeGroup2(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSizeBit = opcode & 1;
 	static const X86Operation op[8] =
 	{
-		X86_ROL, X86_ROR, X86_RCL, X86_RCR, X86_SHL, X86_SHR, X86_SHL, X86_SAR
+		X86_ROL, X86_ROR, X86_RCL, X86_RCR,
+		X86_SHL, X86_SHR, X86_SHL, X86_SAR
 	};
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 
 	// Grab the ModRM byte
 	if (!Fetch(state, 1, &modRm))
+		return false;
+
+	// The destination is either a register or memory depending on the Mod bits
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
 
 	// The source operand is guaranteed to be a byte
@@ -819,10 +830,6 @@ static bool DecodeGroup2(X86DecoderState* const state, uint8_t opcode)
 	reg = MODRM_REG(modRm);
 	state->instr->op = op[reg];
 	state->instr->operandCount = 2;
-
-	// The destination is either a register or memory depending on the Mod bits
-	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
-		return false;
 
 	return true;
 }
@@ -867,23 +874,50 @@ static bool DecodeLds(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup11(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t sizeBit = ((opcode & 0x10) >> 4);
-	static const uint8_t operandSizes[2][3] = {{1, 1, 1}, {2, 4, 8}};
-	const uint8_t operandSize = operandSizes[sizeBit][state->operandMode];
+	const uint8_t sizeBit = (opcode & 1);
+	static const uint8_t dstSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 8}
+	};
+	static const uint8_t immSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 4}
+	};
+	const uint8_t dstSize = dstSizes[sizeBit][state->operandMode];
+	const uint8_t immSize = immSizes[sizeBit][state->operandMode];
 	uint8_t modRm;
+	uint8_t reg;
 
-	// Figure out the destination
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
-		return false;
 
-	// Now the source
-	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
-		return false;
+	reg = MODRM_REG(modRm);
+	if (reg == 0)
+	{
+		if (!DecodeModRmRmField(state, dstSize, &state->instr->operands[0], modRm))
+			return false;
+		if (!DecodeImmediate(state, &state->instr->operands[1], immSize))
+			return false;
 
-	state->instr->op = X86_MOV;
-	state->instr->operandCount = 2;
+		state->instr->op = X86_MOV;
+		state->instr->operandCount = 2;
+	}
+	else if ((reg == 7) && (IsModRmRmFieldReg(modRm)))
+	{
+		static const X86Operation operations[] = {X86_XABORT, X86_XBEGIN};
+
+		if (!DecodeImmediate(state, &state->instr->operands[0], immSize))
+			return false;
+
+		state->instr->op = operations[sizeBit];
+		state->instr->operandCount = 1;
+	}
+	else
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -993,14 +1027,16 @@ static bool DecodeFPLoadStore(X86DecoderState* const state, uint8_t opcode)
 			g_decoderModeSizeXref[state->mode] * 7, 2
 		};
 
+		state->instr->op = operations[reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
+
+		state->instr->operandCount = 2;
+
 		// Memory!
 		if (!DecodeModRmRmFieldMemory(state, 4, &state->instr->operands[1], modRm))
 			return false;
-
 		state->instr->operands[1].size = operandSizes[reg];
-
-		state->instr->op = operations[reg];
-		state->instr->operandCount = 2;
 	}
 	else if (reg < 2)
 	{
@@ -1029,6 +1065,8 @@ static bool DecodeFPLoadStore(X86DecoderState* const state, uint8_t opcode)
 		};
 
 		state->instr->op = operations[rm][reg - 2];
+		if (state->instr->op == X86_INVALID)
+			return false;
 
 		// ffnop really has no args.
 		if (state->instr->op == X86_FNOP)
@@ -1451,6 +1489,10 @@ static bool DecodeGroup3(X86DecoderState* const state, uint8_t opcode)
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
+	// Figure out the destination
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
+		return false;
+
 	// Extra opcode bits are in the reg field of the ModRM byte
 	reg = MODRM_REG(modRm);
 	state->instr->op = operations[reg];
@@ -1465,10 +1507,6 @@ static bool DecodeGroup3(X86DecoderState* const state, uint8_t opcode)
 	{
 		state->instr->operandCount = 1;
 	}
-
-	// Figure out the destination
-	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
-		return false;
 
 	return true;
 }
@@ -1822,7 +1860,7 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 		{X86_DS, X86_NONE},
 		{X86_NONE, X86_ES}
 	};
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->mode]};
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t sizeBit = (opcode & 1);
 	const uint8_t operationBits = ((opcode & 0xf) - 0xa) >> 1;
 	const uint8_t operandSize = operandSizes[sizeBit];
@@ -1847,7 +1885,7 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeMovImm(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->mode]};
+	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeBit = (opcode >> 3) & 1;
 	const uint8_t reg = (opcode & 7);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
@@ -2021,7 +2059,8 @@ static bool DecodeJmpRelativeByte(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeInOutDx(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->mode]};
+	static const uint8_t gprSizes[] = {2, 4, 4};
+	const uint8_t operandSizes[2] = {1, gprSizes[state->operandMode]};
 	static const X86Operation operations[2] = {X86_IN, X86_OUT};
 	const uint8_t operandSizeBit = (opcode & 1);
 	const uint8_t operation = (opcode >> 1) & 1;
@@ -2058,11 +2097,10 @@ static bool DecodeGroup4(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!DecodeModRmRmField(state, 1, &state->instr->operands[0], modRm))
-		return false;
-
 	reg = MODRM_REG(modRm);
-	if (reg & 2)
+	if (reg > 1)
+		return false;
+	if (!DecodeModRmRmField(state, 1, &state->instr->operands[0], modRm))
 		return false;
 
 	state->instr->operandCount = 1;
@@ -3631,7 +3669,8 @@ static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
+	if (!IsModRmRmFieldReg(modRm))
+		return false;
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[operand0], modRm))
 		return false;
 
