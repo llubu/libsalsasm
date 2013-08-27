@@ -103,7 +103,7 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 	MODRM_RM_OPERANDS32(MEM, EDX, NONE, 1, 0),
 	MODRM_RM_OPERANDS32(MEM, EBX, NONE, 1, 0),
 	MODRM_RM_OPERANDS32(NONE, NONE, NONE, 1, 1), // SIB
-	MODRM_RM_OPERANDS32(MEM, NONE, NONE, 1, 0),
+	MODRM_RM_OPERANDS32(MEM, EBP, NONE, 1, 0),
 	MODRM_RM_OPERANDS32(MEM, ESI, NONE, 1, 0),
 	MODRM_RM_OPERANDS32(MEM, EDI, NONE, 1, 0),
 
@@ -113,7 +113,7 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 	MODRM_RM_OPERANDS32(MEM, EDX, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(MEM, EBX, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(NONE, NONE, NONE, 4, 1), // SIB
-	MODRM_RM_OPERANDS32(MEM, NONE, NONE, 4, 0),
+	MODRM_RM_OPERANDS32(MEM, EBP, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(MEM, ESI, NONE, 4, 0),
 	MODRM_RM_OPERANDS32(MEM, EDI, NONE, 4, 0),
 };
@@ -570,11 +570,13 @@ static bool DecodePushPopAll(X86DecoderState* const state, uint8_t opcode)
 	static const X86Operation ops[3][2] =
 	{
 		{X86_PUSHA, X86_POPA},
-		{X86_PUSHA, X86_POPA},
 		{X86_PUSHAD, X86_POPAD}
 	};
 
-	state->instr->op = ops[state->mode][opcode & 1];
+	if (state->mode == X86_64BIT)
+		return false;
+
+	state->instr->op = ops[state->operandMode][opcode & 1];
 	state->instr->operandCount = 0;
 
 	return true;
@@ -727,7 +729,7 @@ static bool DecodeMovOffset(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t sizeBit = opcode & 1;
 	const uint8_t orderBit = (opcode >> 1) & 1;
 	const uint8_t operandSize = operandSizes[sizeBit];
-	const uint8_t offsetSize = g_decoderModeSizeXref[state->operandMode];
+	const uint8_t offsetSize = g_decoderModeSizeXref[state->mode];
 	const uint8_t operand0 = g_operandOrder[orderBit][0];
 	const uint8_t operand1 = g_operandOrder[orderBit][1];
 
@@ -934,6 +936,14 @@ static bool DecodeAsciiAdjust(X86DecoderState* const state, uint8_t opcode)
 	state->instr->op = operation[op];
 	state->instr->operandCount = 1;
 
+	return true;
+}
+
+
+static bool DecodeSalc(X86DecoderState* const state, uint8_t opcode)
+{
+	(void)opcode;
+	state->instr->op = X86_SALC;
 	return true;
 }
 
@@ -1564,10 +1574,10 @@ static bool DecodeLss(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeInOutString(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation operations[2][3] =
+	static const X86Operation sizeOps[2][3] =
 	{
-		{X86_INSB, X86_INSW, X86_INSD},
-		{X86_OUTSB, X86_OUTSW, X86_OUTSD}
+		{X86_INSW, X86_INSD, X86_INSD},
+		{X86_OUTSW, X86_OUTSD, X86_OUTSD}
 	};
 	static const X86OperandType memOperands[3][2] =
 	{
@@ -1575,15 +1585,21 @@ static bool DecodeInOutString(X86DecoderState* const state, uint8_t opcode)
 		{X86_ESI, X86_EDI},
 		{X86_RSI, X86_RDI}
 	};
+	const X86Operation operations[2][2] =
+	{
+		{X86_INSB, sizeOps[0][state->operandMode]},
+		{X86_OUTSB, sizeOps[1][state->operandMode]}
+	};
 	const uint8_t operandSizes[2][3] =
 	{
 		{1, 1, 1},
 		{2, 4, 4}
 	};
-	const size_t opBit = (opcode >> 1) & 1;
-	const size_t operandBit = opcode & 1;
-	const size_t operand0 = opBit;
-	const size_t operand1 = ((~opBit) & 1);
+	const uint8_t opBit = ((opcode >> 1) & 1);
+	const uint8_t operandBit = (opcode & 1);
+	const uint8_t operand0 = opBit;
+	const uint8_t operand1 = ((~opBit) & 1);
+	const uint8_t operandSize = operandSizes[operandBit][state->operandMode];
 
 	state->instr->op = operations[opBit][operandBit];
 	state->instr->operandCount = 2;
@@ -1592,7 +1608,7 @@ static bool DecodeInOutString(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[operand0].size = 2;
 
 	state->instr->operands[operand1].operandType = X86_MEM;
-	state->instr->operands[operand1].size = operandSizes[operandBit][state->operandMode];
+	state->instr->operands[operand1].size = operandSize;
 	state->instr->operands[operand1].components[0] = memOperands[state->mode][0];
 	state->instr->operands[operand1].components[1] = memOperands[state->mode][1];
 
@@ -1631,9 +1647,6 @@ static bool DecodeMovSeg(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
 
-	state->instr->op = X86_MOV;
-	state->instr->operandCount = 2;
-
 	// Grab the ModRm byte
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -1655,6 +1668,9 @@ static bool DecodeMovSeg(X86DecoderState* const state, uint8_t opcode)
 	// Now process the second operand.
 	state->instr->operands[operand1].size = 2;
 	state->instr->operands[operand1].operandType = segments[segment];
+
+	state->instr->op = X86_MOV;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -2168,7 +2184,7 @@ static bool DecodeSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeExtendedSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86InstructionFlags segments[2] = {X86_FLAG_SEGMENT_OVERRIDE_FS, X86_FLAG_SEGMENT_OVERRIDE_GS};
-	const uint8_t colBit = opcode - 4;
+	const uint8_t colBit = (opcode & 1);
 	state->lastBytePrefix = true;
 
 	// Only the last segment override prefix matters.
@@ -2313,7 +2329,7 @@ static const InstructionDecoder g_primaryDecoders[256] =
 
 	// Row 0xd
 	DecodeGroup2, DecodeGroup2, DecodeGroup2, DecodeGroup2,
-	DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeInvalid, DecodeXlat,
+	DecodeAsciiAdjust, DecodeAsciiAdjust, DecodeSalc, DecodeXlat,
 	DecodeFPArithmetic, DecodeFPLoadStore, DecodeFPMovConditional, DecodeFPMovNegConditional,
 	DecodeFPArithmetic, DecodeFPFreeStore, DecodeFPArithmeticPop, DecodeFPIntPop,
 
