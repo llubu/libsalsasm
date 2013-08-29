@@ -184,6 +184,7 @@ bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86I
 	state.instr = instr;
 	state.valid = true;
 	state.mode = X86_16BIT;
+	state.addrMode = X86_16BIT;
 	state.operandMode = X86_16BIT;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
@@ -205,6 +206,7 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 	state.instr = instr;
 	state.valid = true;
 	state.mode = X86_32BIT;
+	state.addrMode = X86_32BIT;
 	state.operandMode = X86_32BIT;
 	state.instr->flags = X86_FLAG_NONE;
 
