@@ -1275,13 +1275,10 @@ static bool DecodeFPArithmeticDivRev(X86DecoderState* const state, uint8_t opcod
 	{
 		static const X86Operation operations[8] =
 		{
-			X86_FADD, X86_FMUL, X86_INVALID, X86_INVALID,
+			X86_FADD, X86_FMUL, X86_FCOM2, X86_FCOMP3,
 			X86_FSUB, X86_FSUBR, X86_FDIVR, X86_FDIV
 		};
 		const uint8_t rm = MODRM_RM(modRm);
-
-		if (operations[reg] == X86_INVALID)
-			return false;
 
 		state->instr->operands[0].operandType = g_fpSources[rm];
 		state->instr->operands[0].size = 4;
@@ -1344,7 +1341,7 @@ static bool DecodeFPFreeStore(X86DecoderState* const state, uint8_t opcode)
 		const uint8_t rm = MODRM_RM(modRm);
 		static const X86Operation operations[8] =
 		{
-			X86_FFREE, X86_INVALID, X86_FST, X86_FSTP,
+			X86_FFREE, X86_FXCH4, X86_FST, X86_FSTP,
 			X86_FUCOM, X86_FUCOMP, X86_INVALID, X86_INVALID
 		};
 
@@ -1484,7 +1481,28 @@ static bool DecodeFPIntPop(X86DecoderState* const state, uint8_t opcode)
 	}
 	else
 	{
-		return false;
+		// Undocumented opcodes and aliases
+		const uint8_t row = (modRm & 0xf0);
+		if (row == 0xc0)
+		{
+			static const X86Operation operations[] = {X86_FFREEP, X86_FXCH7};
+			const uint8_t op = ((modRm & 0x08) >> 3);
+			state->instr->op = operations[op];
+		}
+		else if (row == 0xd0)
+		{
+			static const X86Operation operations[] = {X86_FSTP8, X86_FSTP9};
+			const uint8_t op = ((modRm & 0x08) >> 3);
+			state->instr->op = operations[op];
+		}
+		else // 0xf8-0xdf
+		{
+			return false;
+		}
+
+		state->instr->operandCount = 1;
+		state->instr->operands[0].operandType = g_fpSources[MODRM_RM(modRm)];
+		state->instr->operands[0].size = 10;
 	}
 
 	return true;
@@ -1814,6 +1832,7 @@ static bool DecodeGroup1a(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
 
+	state->instr->op = X86_POP;
 	state->instr->operandCount = 1;
 
 	return true;
@@ -3461,9 +3480,13 @@ static bool DecodeGroup9(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 {
-	DecodeOneOperandOpcodeGpr(state, opcode);
+	uint8_t reg = (opcode & 0x7);
+
+	DecodeOperandGpr(&state->instr->operands[0], reg, 4);
+
 	state->instr->op = X86_BSWAP;
 	state->instr->operandCount = 1;
+
 	return true;
 }
 
