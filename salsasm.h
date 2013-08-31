@@ -344,9 +344,17 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-	LIBSALSASMAPI bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	LIBSALSASMAPI bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
-	LIBSALSASMAPI bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr);
+	LIBSALSASMAPI bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch,
+		void* ctxt, X86Instruction* instr);
+
+	LIBSALSASMAPI bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch,
+		void* ctxt, X86Instruction* instr);
+
+	LIBSALSASMAPI bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch,
+		void* ctxt, X86Instruction* instr);
+
+	LIBSALSASMAPI void GetInstructionString(char* const dest, const size_t len, const char* format,
+		const X86Instruction* const instr);
 
 #ifdef __cplusplus
 }

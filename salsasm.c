@@ -20,12 +20,17 @@
 	THE SOFTWARE.
 */
 #include <memory.h>
+#include <stdio.h>
 
 #include "salsasm_types.h"
 #include "decode.h"
 
+#ifdef WIN32
+#define snprintf _snprintf
+#endif
+
 // NOTE: These must be maintained in the same order as X86Operations enum!
-static const char* const X86Mnemonics[] =
+static const char* const g_x86Mnemonics[] =
 {
 	"invalid",
 	"aaa", "aad", "aam", "aas", "adc", "add", "addpd",
@@ -88,7 +93,7 @@ static const char* const X86Mnemonics[] =
 	"pcmpgtw", "pcmpistri", "pcmpistrm", "pextrb", "pextrd", "pextrq",
 	"pextrw", "pfnacc", "pfpnacc", "pfcmpge", "pfmin", "pfrcp", "pfrsqrt", "pfmax",
 	"pfsqrt", "pfsub", "pfadd", "pfcmpgt", "pfrcpit1", "pfrsqit1", "pfsubr", "pfacc",
-	"pfcmpeq", "pfmul", "pfrcpit2", "pmulhrw", "pswapd", "pavgusb", 
+	"pfcmpeq", "pfmul", "pfrcpit2", "pmulhrw", "pswapd", "pavgusb",
 	"phaddd", "phaddsw", "phaddw", "phminposuw", "phsubd", "phsubsw",
 	"phsubw", "pinsrb", "pinsrd", "pinsrq", "pinsrw", "pmaddubsw", "pmaddwd",
 	"pmaxsb", "pmaxsd", "pmaxsw", "pmaxub", "pmaxud", "pmaxuw", "pminsb",
@@ -174,6 +179,369 @@ static const char* const X86Mnemonics[] =
 	"xlatb", "xor", "xorpd", "xorps", "xrstor", "xsave", "xsaveopt", "xsetbv"
 };
 
+// Must be maintained in same order as X86OperandType
+const char* const g_operandTypeNames[] =
+{
+	// X86_NONE = 0,
+	// X86_MEM,
+	// X86_IMMEDIATE,
+	"none", "mem", "imm",
+
+	// Segment registers
+	// X86_CS, X86_SS, X86_DS, X86_ES, X86_FS, X86_GS,
+	"cs", "ss", "ds", "es", "fs", "gs",
+
+	// Instruction Pointer
+	// X86_IP, X86_EIP, X86_RIP,
+	"ip", "eip", "rip",
+
+	// Flags
+	// X86_FLAGS, X86_EFLAGS, X86_RFLAGS,
+	"flags", "eflags", "rflags",
+
+	// GPRs
+	// X86_AL, X86_AH, X86_AX, X86_EAX, X86_RAX,
+	"al", "ah", "ax", "eax", "rax",
+
+	// X86_CL, X86_CH, X86_CX, X86_ECX, X86_RCX,
+	"cl", "ch", "cx", "ecx", "rcx",
+
+	// X86_DL, X86_DH, X86_DX, X86_EDX, X86_RDX,
+	"dl", "dh", "dx", "edx", "rdx",
+
+	// X86_BL, X86_BH, X86_BX, X86_EBX, X86_RBX,
+	"bl", "bh", "bx", "ebx", "rbx",
+
+	// X86_SPL, X86_SP, X86_ESP, X86_RSP,
+	"spl", "sp", "esp", "rsp",
+
+	// X86_BPL, X86_BP, X86_EBP, X86_RBP,
+	"bpl", "bp", "ebp", "rbp",
+
+	// X86_SIL, X86_SI, X86_ESI, X86_RSI,
+	"sil", "si", "esi", "rsi",
+
+	// X86_DIL, X86_DI, X86_EDI, X86_RDI,
+	"dil", "di", "edi", "rdi",
+
+	// X86_R8B, X86_R8W, X86_R8D, X86_R8,
+	"r8b", "r8w", "r8d", "r8",
+
+	// X86_R9B, X86_R9W, X86_R9D, X86_R9,
+	"r9b", "r9w", "r9d", "r9",
+
+	// X86_R10B, X86_R10W, X86_R10D, X86_R10,
+	"r10b", "r10w", "r10d", "r10",
+
+	// X86_R11B, X86_R11W, X86_R11D, X86_R11,
+	"r11b", "r11w", "r11d", "r11",
+
+	// X86_R12B, X86_R12W, X86_R12D, X86_R12,
+	"r12b", "r12w", "r12d", "r12",
+
+	// X86_R13B, X86_R13W, X86_R13D, X86_R13,
+	"r13b", "r13w", "r13d", "r13",
+
+	// X86_R14B, X86_R14W, X86_R14D, X86_R14,
+	"r14b", "r14w", "r14d", "r14",
+
+	// X86_R15B, X86_R15W, X86_R15D, X86_R15,
+	"r15b", "r15w", "r15d", "r15",
+
+	// FPU, MMX
+	// X86_FPU_TAG, X86_FPU_STATUS, X86_FPU_CONTROL, X86_FPU_DATA, X86_FPU_IP, X86_FP_OPCODE,
+	"fptag", "fpsw", "fpcw", "fpdata", "fpip", "fpopcode",
+
+	// X86_ST0, X86_ST1, X86_ST2, X86_ST3, X86_ST4, X86_ST5, X86_ST6, X86_ST7,
+	"st0", "st1", "st2", "st3", "st4", "st5", "st6", "st7",
+
+	// X86_MM0, X86_MM1, X86_MM2, X86_MM3, X86_MM4, X86_MM5, X86_MM6, X86_MM7,
+	"mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",
+
+	// SSE, AVX, PHI
+	// X86_MXCSR,
+	"mxcsr",
+
+	// X86_XMM0, X86_XMM1, X86_XMM2, X86_XMM3, X86_XMM4, X86_XMM5, X86_XMM6, X86_XMM7,
+	"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
+	// X86_XMM8, X86_XMM9, X86_XMM10, X86_XMM11, X86_XMM12, X86_XMM13, X86_XMM14, X86_XMM15,
+	"xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"
+
+	// X86_YMM0, X86_YMM1, X86_YMM2, X86_YMM3, X86_YMM4, X86_YMM5, X86_YMM6, X86_YMM7,
+	"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7",
+	// X86_YMM8, X86_YMM9, X86_YMM10, X86_YMM11, X86_YMM12, X86_YMM13, X86_YMM14, X86_YMM15,
+	"ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"
+
+	// X86_ZMM0, X86_ZMM1, X86_ZMM2, X86_ZMM3, X86_ZMM4, X86_ZMM5, X86_ZMM6, X86_ZMM7,
+	"zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7",
+	// X86_ZMM8, X86_ZMM9, X86_ZMM10, X86_ZMM11, X86_ZMM12, X86_ZMM13, X86_ZMM14, X86_ZMM15,
+	"zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15"
+
+	// Control Registers
+	// X86_CR0, X86_CR2, X86_CR3, X86_CR4, X86_CR8,
+	"cr0", "cr2", "cr3", "cr4", "cr8",
+
+	// Debug Registers
+	// X86_DR0, X86_DR1, X86_DR2, X86_DR3, X86_DR4, X86_DR5, X86_DR6, X86_DR7,
+	"dr0", "dr1", "dr2", "dr3", "dr4", "dr5", "dr6", "dr7",
+
+	// Descriptor Tables
+	// X86_IDTR, X86_GDTR, X86_LDTR, X86_TR
+	"idtr", "gdtr", "ldtr", "tr"
+};
+
+
+static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64_t immediate, const uint8_t size)
+{
+	switch (size)
+	{
+	case 1:
+		return snprintf(dest, maxLen, "%.02x", (uint8_t)immediate);
+	case 2:
+		return snprintf(dest, maxLen, "%.04x", (uint16_t)immediate);
+	case 4:
+		return snprintf(dest, maxLen, "%.08x", (uint32_t)immediate);
+	case 8:
+		return snprintf(dest, maxLen, "%.16llx", immediate);
+	default:
+		return 0;
+	}
+}
+
+
+static size_t PrintRegister(char* const dest, size_t const maxLen, const X86OperandType reg)
+{
+	return snprintf(dest, maxLen, "%s", g_operandTypeNames[reg]);
+}
+
+
+static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X86Operand* const operand)
+{
+	size_t remaining;
+	size_t len;
+	char* dstPtr;
+
+	dstPtr = dest;
+	remaining = maxLen;
+
+	len = snprintf(dstPtr, remaining, "[");
+	remaining -= len;
+	dstPtr += len;
+
+	if (operand->components[0] != X86_NONE)
+	{
+		len = PrintRegister(dstPtr, remaining, operand->components[0]);
+		dstPtr += len;
+		remaining -= len;
+	}
+
+	if (operand->components[1] != X86_NONE)
+	{
+		if (operand->components[0] != X86_NONE)
+		{
+			len = snprintf(dstPtr, remaining, "+");
+			dstPtr += len;
+			remaining -= len;
+		}
+		len = PrintRegister(dstPtr, remaining, operand->components[1]);
+		dstPtr += len;
+		remaining -= len;
+		if (operand->scale > 1)
+		{
+			len = snprintf(dstPtr, remaining, "*%d", operand->scale << 3);
+			dstPtr += len;
+			remaining -= len;
+		}
+	}
+
+	if (((operand->components[0] != X86_NONE) || (operand->components[1] != X86_NONE)) && operand->immediate)
+	{
+		len = snprintf(dstPtr, remaining, "+");
+		dstPtr += len;
+		remaining -= len;
+	}
+
+	if (operand->immediate || ((operand->components[0] == X86_NONE) && (operand->components[1] == X86_NONE)))
+	{
+		// FIXME: Addr mode is what governs the imm size, not operand size
+		len = PrintImmediate(dstPtr, remaining, operand->immediate, operand->size);
+		dstPtr += len;
+		remaining -= len;
+	}
+
+	remaining -= snprintf(dstPtr, remaining, "]");
+
+	return (maxLen - remaining);
+}
+
+
+static size_t PrintOperands(char* const dest, size_t const maxLen, const X86Operand* const operands)
+{
+	size_t remaining;
+	uint8_t i;
+	char* dstPtr;
+
+	dstPtr = dest;
+	remaining = maxLen;
+	for (i = 0; i < 4; i++)
+	{
+		size_t len;
+		if (operands[i].operandType == X86_NONE)
+			break;
+		if (i != 0)
+		{
+			len = snprintf(dstPtr, remaining, ", ");
+			dstPtr += len;
+			remaining -= len;
+		}
+		switch (operands[i].operandType)
+		{
+		case X86_NONE:
+			// Handled above. Should never get here.
+			len = 0;
+			break;
+		case X86_MEM:
+			len = PrintMemoryOperand(dstPtr, remaining, &operands[i]);
+			break;
+		case X86_IMMEDIATE:
+			len = PrintImmediate(dstPtr, remaining, operands[i].immediate, operands[i].size);
+			break;
+		default:
+			len = PrintRegister(dstPtr, remaining, operands[i].operandType);
+			break;
+		}
+
+		dstPtr += len;
+		remaining -= len;
+	}
+
+	return (maxLen - remaining);
+}
+
+
+static size_t PrintInstruction(char* const dest, const size_t len, const X86Operation op)
+{
+	return snprintf(dest, len, "%s", g_x86Mnemonics[op]);
+}
+
+
+static __inline uint8_t FindMsb(uint64_t i)
+{
+	uint8_t bit = 64;
+
+	if (i == 0)
+		return 0;
+
+	if ((i & 0xffffffff00000000) == 0)
+	{
+		i <<= 32;
+		bit -= 32;
+	}
+
+	if ((i & 0xffff0000) == 0)
+	{
+		i <<= 16;
+		bit -= 16;
+	}
+
+	if ((i & 0xff000000) == 0)
+	{
+		i <<= 8;
+		bit -= 8;
+	}
+
+	if ((i & 0xf0000000) == 0)
+	{
+		i <<= 4;
+		bit -= 4;
+	}
+
+	if ((i & 0xc0000000) == 0)
+	{
+		i <<= 2;
+		bit -= 2;
+	}
+
+	if ((i & 0x80000000) == 0)
+	{
+		i <<= 1;
+		bit -= 1;
+	}
+
+	return bit;
+}
+
+
+static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t rip)
+{
+	const uint8_t bit = FindMsb(rip);
+	if (bit >= 32)
+		return snprintf(dest, maxLen, "%.16llx", rip);
+	else if (bit >= 16)
+		return snprintf(dest, maxLen, "%.08lx", (uint32_t)rip);
+	else
+		return snprintf(dest, maxLen, "%.04x", (uint16_t)rip);
+}
+
+
+void GetInstructionString(char* const dest, const size_t len, const char* format, const X86Instruction* const instr)
+{
+	const char* src = format;
+	char* dstPtr = dest;
+	bool delimitter;
+	size_t remaining = len;
+
+	delimitter = false;
+	for (; src && remaining; src++)
+	{
+		if (!delimitter)
+		{
+			if (*src != '%')
+			{
+				*dstPtr++ = *src;
+				remaining--;
+				continue;
+			}
+			else
+			{
+				delimitter = true;
+				continue;
+			}
+		}
+		else
+		{
+			size_t len;
+
+			switch (*src)
+			{
+			case 'i':
+				len = PrintInstruction(dstPtr, remaining, instr->op);
+				break;
+			case 'o':
+				len = PrintOperands(dstPtr, remaining, instr->operands);
+				break;
+			case 'b':
+				// len = PrintBytes();
+				len = 0;
+				break;
+			case 'a':
+				len = PrintAddress(dstPtr, remaining, instr->rip);
+				break;
+			case 's':
+				// len = PrintSymbol();
+				len = 0;
+				break;
+			default:
+				return;
+			}
+
+			dstPtr += len;
+			remaining -= len;
+			delimitter = false;
+		}
+	}
+}
+
 
 bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
@@ -188,7 +556,7 @@ bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86I
 	state.operandMode = X86_16BIT;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
-	state.instr->rip = SIGN_EXTEND64(ip, 2);
+	state.instr->rip = ip;
 
 	if (!DecodePrimaryOpcodeTable(&state))
 		return false;
@@ -211,7 +579,7 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 	state.instr->flags = X86_FLAG_NONE;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
-	state.instr->rip = SIGN_EXTEND64(eip, 4);
+	state.instr->rip = eip;
 
 	if (!DecodePrimaryOpcodeTable(&state))
 		return false;
