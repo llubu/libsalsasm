@@ -24,7 +24,13 @@
 
 #include "salsasm.h"
 
-typedef enum SecondaryOpCodeTable SecondaryOpCodeTable;
+typedef enum SecondaryOpCodeTable
+{
+	SECONDARY_TABLE_NORMAL = 0,
+	SECONDARY_TABLE_F3 = 1,
+	SECONDARY_TABLE_66 = 2,
+	SECONDARY_TABLE_F2 = 3
+} SecondaryOpCodeTable;
 
 typedef enum X86DecoderMode
 {

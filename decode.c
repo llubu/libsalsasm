@@ -34,14 +34,6 @@ typedef struct ModRmRmOperand
 	const uint8_t sib;
 } ModRmRmOperand;
 
-enum SecondaryOpCodeTable
-{
-	SECONDARY_TABLE_NORMAL = 0,
-	SECONDARY_TABLE_F3 = 1,
-	SECONDARY_TABLE_66 = 2,
-	SECONDARY_TABLE_F2 = 3
-};
-
 #define MODRM_MOD(a) (((a) >> 6) & 3)
 #define MODRM_REG(a) (((a) >> 3) & 7)
 #define MODRM_RM(a) ((a) & 7)
@@ -138,7 +130,7 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 	MODRM_SIB_OPERAND_ROW(scale, X86_ESI, base5), \
 	MODRM_SIB_OPERAND_ROW(scale, X86_EDI, base5) \
 
-static const ModRmRmOperand g_sibTable[768] =
+static const X86Operand g_sibTable[768] =
 {
 	// Mod 0
 	MODRM_SIB_OPERAND_COL(0, X86_NONE),
@@ -294,8 +286,7 @@ static __inline void DecodeOperandGpr(X86Operand* const operand, uint8_t reg, ui
 }
 
 
-static __inline void DecodeModRmRmFieldReg(X86DecoderState* const state, uint8_t operandSize,
-		X86Operand* const operand, uint8_t modRm)
+static __inline void DecodeModRmRmFieldReg(int8_t operandSize, X86Operand* const operand, uint8_t modRm)
 {
 	const uint8_t reg = MODRM_RM(modRm);
 	DecodeOperandGpr(operand, reg, operandSize);
@@ -352,14 +343,14 @@ static __inline bool DecodeModRmRmField(X86DecoderState* const state, uint8_t op
 {
 	if (IsModRmRmFieldReg(modRm))
 	{
-		DecodeModRmRmFieldReg(state, operandSize, operand, modRm);
+		DecodeModRmRmFieldReg(operandSize, operand, modRm);
 		return true;
 	}
 	return DecodeModRmRmFieldMemory(state, operandSize, operand, modRm);
 }
 
 
-static __inline void DecodeModRmRegField(X86DecoderState* const state, uint8_t operandSize,
+static __inline void DecodeModRmRegField(int8_t operandSize,
 	X86Operand* const operand, uint8_t modRm)
 {
 	const uint8_t reg = MODRM_REG(modRm);
@@ -376,7 +367,7 @@ static __inline bool DecodeModRm(X86DecoderState* const state, uint8_t operandSi
 		return false;
 	if (!DecodeModRmRmField(state, operandSize, &operands[0], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &operands[1], modRm);
+	DecodeModRmRegField(operandSize, &operands[1], modRm);
 
 	return true;
 }
@@ -391,7 +382,7 @@ static __inline bool DecodeModRmRev(X86DecoderState* const state, uint8_t operan
 		return false;
 	if (!DecodeModRmRmField(state, operandSize, &operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &operands[0], modRm);
+	DecodeModRmRegField(operandSize, &operands[0], modRm);
 
 	return true;
 }
@@ -408,7 +399,7 @@ static __inline bool DecodeModRmDirection(X86DecoderState* const state, uint8_t 
 		return false;
 	if (!DecodeModRmRmField(state, operandSize, &operands[operand0], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &operands[operand1], modRm);
+	DecodeModRmRegField(operandSize, &operands[operand1], modRm);
 
 	return true;
 }
@@ -551,7 +542,6 @@ static bool DecodeDec(X86DecoderState* const state, uint8_t opcode)
 static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[2] = {X86_PUSH, X86_POP};
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 
 	DecodeOneOperandOpcodeGpr(state, opcode);
 
@@ -612,6 +602,8 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (ops[state->addrMode] == X86_INVALID)
 		return false;
 
@@ -621,7 +613,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(operandSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = ops[state->addrMode];
 	state->instr->operandCount = 2;
@@ -636,11 +628,13 @@ static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t opSize[3] = {2, 2, g_decoderModeSizeXref[state->operandMode]};
 	static const uint8_t order[3] = {0, 0, 1};
 
-	state->instr->op = ops[state->addrMode];
-	state->instr->operandCount = 2;
+	(void)opcode;
 
 	if (!DecodeModRmDirection(state, opSize[state->addrMode], state->instr->operands, order[state->addrMode]))
 		return false;
+
+	state->instr->op = ops[state->addrMode];
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -731,8 +725,9 @@ static bool DecodeNop(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeNopModRm(X86DecoderState* const state, uint8_t opcode)
 {
-	X86Operand operands[2] = {0};
+	X86Operand operands[2];
 	(void)opcode;
+	memset(operands, 0, sizeof(operands));
 	if (!DecodeModRm(state, g_decoderModeSizeXref[state->operandMode], operands))
 		return false;
 	state->instr->op = X86_NOP;
@@ -742,7 +737,6 @@ static bool DecodeNopModRm(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeXchgRax(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86OperandType sources[3] = {X86_AX, X86_EAX, X86_RAX};
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	const uint8_t reg = (opcode & 0xf);
 
@@ -883,7 +877,7 @@ static __inline bool DecodeLoadSegment(X86DecoderState* const state, X86Operatio
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, srcSizes[state->operandMode], &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, destSizes[state->operandMode], &state->instr->operands[0], modRm);
+	DecodeModRmRegField(destSizes[state->operandMode], &state->instr->operands[0], modRm);
 
 	state->instr->op = op;
 	state->instr->operandCount = 2;
@@ -894,6 +888,7 @@ static __inline bool DecodeLoadSegment(X86DecoderState* const state, X86Operatio
 
 static bool DecodeLes(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeLoadSegment(state, X86_LES))
 		return false;
 	return true;
@@ -902,6 +897,7 @@ static bool DecodeLes(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeLds(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeLoadSegment(state, X86_LDS))
 		return false;
 	return true;
@@ -987,8 +983,7 @@ static bool DecodeXlat(X86DecoderState* const state, uint8_t opcode)
 	static const X86OperandType sources[3] = {X86_BX, X86_EBX, X86_RBX};
 	const X86OperandType source = sources[state->addrMode];
 
-	state->instr->op = X86_XLAT;
-	state->instr->operandCount = 2;
+	(void)opcode;
 
 	// Store in AL
 	state->instr->operands[0].operandType = X86_AL;
@@ -1000,6 +995,9 @@ static bool DecodeXlat(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[1].segment = X86_DS;
 	state->instr->operands[1].components[0] = X86_AL;
 	state->instr->operands[1].components[1] = source;
+
+	state->instr->op = X86_XLAT;
+	state->instr->operandCount = 2;
 
 	return true;
 }
@@ -1052,6 +1050,8 @@ static bool DecodeFPLoadStore(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -1131,6 +1131,8 @@ static bool DecodeFPMovConditional(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -1184,6 +1186,8 @@ static bool DecodeFPMovNegConditional(X86DecoderState* const state, uint8_t opco
 {
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -1300,6 +1304,8 @@ static bool DecodeFPFreeStore(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -1374,6 +1380,8 @@ static bool DecodeFPArithmeticPop(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -1427,6 +1435,8 @@ static bool DecodeFPIntPop(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -1551,7 +1561,6 @@ static bool DecodeInOutImm(X86DecoderState* const state, uint8_t opcode)
 	const size_t operand0 = direction;
 	const size_t operand1 = ((~direction) & 1);
 	const uint8_t operandSize = operandSizes[operandSizeBit];
-	const uint8_t reg = (opcode & 7);
 
 	// Process the immediate operand
 	if (!DecodeImmediate(state, &state->instr->operands[operand1], 1))
@@ -1787,6 +1796,7 @@ static bool DecodeLea(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
+
 	(void)opcode;
 
 	// Grab the ModRm byte
@@ -1800,7 +1810,7 @@ static bool DecodeLea(X86DecoderState* const state, uint8_t opcode)
 	// Figure out the operands
 	if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(operandSize, &state->instr->operands[0], modRm);
 
 	// Write out the rest
 	state->instr->op = X86_LEA;
@@ -1815,6 +1825,8 @@ static bool DecodeGroup1a(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	// Grab the ModRm byte
 	if (!Fetch(state, 1, &modRm))
@@ -1866,7 +1878,7 @@ static __inline bool DecodeFarOperand(X86DecoderState* const state)
 			uint16_t segment;
 			uint32_t offset;
 		};
-	} args = {0};
+	} args;
 	const size_t operandBytes = operandSize + 2;
 
 	// Grab the segment and offset
@@ -1932,7 +1944,6 @@ static bool DecodeTestImm(X86DecoderState* const state, uint8_t opcode)
 {
 	const size_t sizeBit = opcode & 1;
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
-	static const X86OperandType dests[4] = {X86_AL, X86_AX, X86_EAX, X86_RAX};
 	const uint8_t operandSize = operandSizes[sizeBit];
 
 	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
@@ -2036,6 +2047,8 @@ static bool DecodeEnter(X86DecoderState* const state, uint8_t opcode)
 			uint8_t level;
 		};
 	} args;
+
+	(void)opcode;
 
 	if (!Fetch(state, 3, args.imm))
 		return false;
@@ -2142,24 +2155,9 @@ static bool DecodeCallJmpRelative(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodeJmpRelative(X86DecoderState* const state, uint8_t opcode)
-{
-	static const uint8_t operandSizes[3] = {2, 4, 4};
-	const uint8_t operandBytes = operandSizes[state->operandMode];
-	(void)opcode;
-
-	if (!DecodeImmediate(state, &state->instr->operands[0], operandBytes))
-		return false;
-
-	state->instr->op = X86_JMPN;
-	state->instr->operandCount = 1;
-
-	return true;
-}
-
-
 static bool DecodeJmpFar(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	DecodeFarOperand(state);
 	state->instr->op = X86_JMPF;
 	state->instr->operandCount = 2;
@@ -2219,6 +2217,8 @@ static bool DecodeGroup4(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	reg = MODRM_REG(modRm);
@@ -2244,6 +2244,8 @@ static bool DecodeGroup5(X86DecoderState* const state, uint8_t opcode)
 	};
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -2463,8 +2465,7 @@ bool DecodePrimaryOpcodeTable(X86DecoderState* const state)
 }
 
 
-static __inline void DecodeModRmRmFieldSimdReg(X86DecoderState* const state, uint8_t operandSize,
-		X86Operand* const operand, uint8_t modRm)
+static __inline void DecodeModRmRmFieldSimdReg(uint8_t operandSize, X86Operand* const operand, uint8_t modRm)
 {
 	const uint8_t rm = (modRm & 7);
 	operand->operandType = g_simdOperandTypes[operandSize >> 4][rm];
@@ -2472,8 +2473,7 @@ static __inline void DecodeModRmRmFieldSimdReg(X86DecoderState* const state, uin
 }
 
 
-static __inline void DecodeModRmRegFieldSimd(X86DecoderState* const state, uint8_t operandSize,
-	X86Operand* const operand, uint8_t modRm)
+static __inline void DecodeModRmRegFieldSimd(uint8_t operandSize, X86Operand* const operand, uint8_t modRm)
 {
 	const uint8_t reg = (modRm >> 3) & 7;
 	operand->operandType = g_simdOperandTypes[operandSize >> 4][reg];
@@ -2486,7 +2486,7 @@ static __inline bool DecodeModRmRmFieldSimd(X86DecoderState* const state, uint8_
 {
 	if (IsModRmRmFieldReg(modRm))
 	{
-		DecodeModRmRmFieldSimdReg(state, operandSize, operand, modRm);
+		DecodeModRmRmFieldSimdReg(operandSize, operand, modRm);
 		return true;
 	}
 
@@ -2504,7 +2504,7 @@ static __inline bool DecodeModRmSimd(X86DecoderState* const state,
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &operands[0], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &operands[1], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &operands[1], modRm);
 
 	return true;
 }
@@ -2520,7 +2520,7 @@ static __inline bool DecodeModRmSimdRev(X86DecoderState* const state,
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &operands[0], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &operands[0], modRm);
 
 	return true;
 }
@@ -2538,7 +2538,7 @@ static __inline bool DecodeModRmSimdDirection(X86DecoderState* const state,
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &operands[operand0], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &operands[operand1], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &operands[operand1], modRm);
 
 	return true;
 }
@@ -2554,6 +2554,8 @@ static bool DecodeGroup6(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -2567,7 +2569,7 @@ static bool DecodeGroup6(X86DecoderState* const state, uint8_t opcode)
 		const uint8_t operandSizes[] = {currentOperandSize, currentOperandSize, 2, 2, 2, 2, 0};
 		const uint8_t operandSize = operandSizes[reg];
 
-		DecodeModRmRmFieldReg(state, operandSize, &state->instr->operands[0], modRm);
+		DecodeModRmRmFieldReg(operandSize, &state->instr->operands[0], modRm);
 	}
 	else
 	{
@@ -2586,6 +2588,8 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -2658,12 +2662,12 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 			break;
 		case 4:
 			operandSize = g_decoderModeSizeXref[state->operandMode];
-			DecodeModRmRmFieldReg(state, operandSize, &state->instr->operands[0], modRm);
+			DecodeModRmRmFieldReg(operandSize, &state->instr->operands[0], modRm);
 			state->instr->op = X86_SMSW;
 			state->instr->operandCount = 1;
 			break;
 		case 6:
-			DecodeModRmRmFieldReg(state, 2, &state->instr->operands[0], modRm);
+			DecodeModRmRmFieldReg(2, &state->instr->operands[0], modRm);
 			state->instr->op = X86_LMSW;
 			state->instr->operandCount = 1;
 			break;
@@ -2685,7 +2689,7 @@ static bool DecodeLoadSegmentInfo(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmField(state, 2, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(operandSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -2850,6 +2854,8 @@ static bool Decode3dnow(X86DecoderState* const state, uint8_t opcode)
 	};
 	uint8_t imm;
 
+	(void)opcode;
+
 	// 0f 0f [ModRM] [SIB] [displacement] imm8 opcode
 
 	if (!DecodeModRmSimdRev(state, 8, state->instr->operands))
@@ -2919,7 +2925,6 @@ static bool DecodeMovsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovlpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t direction = (opcode & 1);
-	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
 	uint8_t modRm;
@@ -2930,7 +2935,7 @@ static bool DecodeMovlpd(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[operand1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[operand0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[operand0], modRm);
 	state->instr->operands[operand0].size = 8;
 
 	state->instr->op = X86_MOVLPD;
@@ -2953,7 +2958,7 @@ static bool DecodeMovhpd(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[operand1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[operand0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[operand0], modRm);
 	state->instr->operands[operand0].size = 8;
 
 	state->instr->op = X86_MOVHPD;
@@ -2965,6 +2970,7 @@ static bool DecodeMovhpd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeUnpcklpd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 8;
@@ -2979,6 +2985,7 @@ static bool DecodeUnpcklpd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeUnpckhpd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 8;
@@ -3019,11 +3026,11 @@ static bool DecodeUnalignedPackedSingle(X86DecoderState* const state, uint8_t op
 		{
 			X86_MOVHLPS, X86_UNPCKLPS, X86_MOVLHPS
 		};
-		DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[operand1], modRm);
+		DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[operand1], modRm);
 		state->instr->op = operations[op];
 	}
 
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[operand0], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[operand0], modRm);
 
 	state->instr->operandCount = 2;
 
@@ -3152,6 +3159,8 @@ static bool DecodeGroup15(X86DecoderState* const state, uint8_t opcode)
 	uint8_t modRm;
 	uint8_t reg;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -3193,13 +3202,11 @@ static bool DecodeGroup15(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeImul(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-
+	(void)opcode;
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
-
 	state->instr->op = X86_IMUL;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
@@ -3236,7 +3243,7 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmField(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -3248,6 +3255,7 @@ static bool DecodeMovExtend(X86DecoderState* const state, uint8_t opcode)
 static bool DecodePopcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	(void)opcode;
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_POPCNT;
@@ -3259,6 +3267,7 @@ static bool DecodePopcnt(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeTzcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	(void)opcode;
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_TZCNT;
@@ -3270,6 +3279,7 @@ static bool DecodeTzcnt(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeLzcnt(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	(void)opcode;
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_LZCNT;
@@ -3312,24 +3322,28 @@ static __inline bool DecodeCmpPacked(X86DecoderState* const state, X86Operation 
 
 static bool DecodeCmpps(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodeCmpPacked(state, X86_CMPPS);
 }
 
 
 static bool DecodeCmpss(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodeCmpPacked(state, X86_CMPSS);
 }
 
 
 static bool DecodeCmppd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodeCmpPacked(state, X86_CMPPD);
 }
 
 
 static bool DecodeCmpsd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodeCmpPacked(state, X86_CMPSD);
 }
 
@@ -3340,13 +3354,15 @@ static bool DecodeMovnti(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = operandSizes[state->operandMode];
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
-	DecodeModRmRegField(state, operandSize, &state->instr->operands[1], modRm);
+	DecodeModRmRegField(operandSize, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVNTI;
 	state->instr->operandCount = 2;
@@ -3370,6 +3386,8 @@ static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 	uint8_t dstSize;
 	uint8_t mod;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
@@ -3384,7 +3402,7 @@ static bool DecodePinsrw(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRegFieldSimd(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(dstSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_PINSRW;
 	state->instr->operandCount = 3;
@@ -3399,6 +3417,8 @@ static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t srcSize = srcSizes[state->secondaryTable >> 1];
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
@@ -3407,7 +3427,7 @@ static bool DecodePextrw(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(4, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_PEXTRW;
 	state->instr->operandCount = 3;
@@ -3421,13 +3441,15 @@ static __inline bool DecodeShufOperands(X86DecoderState* const state, uint8_t op
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[0], modRm);
 
 	return true;
 }
@@ -3435,6 +3457,7 @@ static __inline bool DecodeShufOperands(X86DecoderState* const state, uint8_t op
 
 static bool DecodeShufps(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeShufOperands(state, opcode))
 		return false;
 	state->instr->op = X86_SHUFPS;
@@ -3445,6 +3468,7 @@ static bool DecodeShufps(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeShufpd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeShufOperands(state, opcode))
 		return false;
 	state->instr->op = X86_SHUFPD;
@@ -3460,6 +3484,8 @@ static bool DecodeGroup9(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t op = 0; // FIXME: REX.W
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -3482,6 +3508,8 @@ static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t reg = (opcode & 0x7);
 
+	(void)opcode;
+
 	DecodeOperandGpr(&state->instr->operands[0], reg, 4);
 
 	state->instr->op = X86_BSWAP;
@@ -3497,6 +3525,8 @@ static bool DecodeAddSubPacked(X86DecoderState* const state, uint8_t opcode)
 	static const X86Operation operations[] = {X86_ADDSUBPD, X86_ADDSUBPS};
 	const uint8_t op = (state->secondaryTable & 1);
 
+	(void)opcode;
+
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 
@@ -3511,13 +3541,15 @@ static bool DecodeLddqu(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_LDDQU;
 	state->instr->operandCount = 2;
@@ -3530,12 +3562,14 @@ static bool DecodeMovq2dq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
-	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(8, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVQ2DQ;
 	state->instr->operandCount = 2;
@@ -3548,12 +3582,14 @@ static bool DecodeMovdq2q(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
-	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(8, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(16, &state->instr->operands[1], modRm);
 
 	// Decode as 16 byte operand to get SSE reg, then fix up the size here
 	state->instr->operands[1].size = 8;
@@ -3567,36 +3603,33 @@ static bool DecodeMovdq2q(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeCvtdq2pd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
-
 	state->instr->op = X86_CVTDQ2PD;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
 
 static bool DecodeCvttpd2dq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
-
 	state->instr->op = X86_CVTTPD2DQ;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
 
 static bool DecodeCvtpd2dq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
-
 	state->instr->op = X86_CVTPD2DQ;
 	state->instr->operandCount = 2;
-
 	return true;
 }
 
@@ -3607,13 +3640,15 @@ static bool DecodeMovmskb(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = operandSizes[state->secondaryTable >> 1];
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
 
-	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[1], modRm);
-	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[1], modRm);
+	DecodeModRmRegField(4, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_PMOVMSKB;
 	state->instr->operandCount = 2;
@@ -3626,13 +3661,15 @@ static bool DecodeMovntq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[0], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(8, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVNTQ;
 	state->instr->operandCount = 2;
@@ -3645,13 +3682,15 @@ static bool DecodeMovntdq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, 16, &state->instr->operands[0], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MOVNTDQ;
 	state->instr->operandCount = 2;
@@ -3664,12 +3703,14 @@ static bool DecodeMaskMovq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
-	DecodeModRmRmFieldSimdReg(state, 8, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(8, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(8, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MASKMOVQ;
 	state->instr->operandCount = 2;
@@ -3682,12 +3723,14 @@ static bool DecodeMaskMovdqu(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
-	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(16, &state->instr->operands[1], modRm);
 
 	state->instr->op = X86_MASKMOVDQU;
 	state->instr->operandCount = 2;
@@ -3744,6 +3787,7 @@ static bool DecodeSimdArithmetic(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup10(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	state->instr->op = X86_UD1;
 	return true;
 }
@@ -3759,6 +3803,8 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -3835,6 +3881,7 @@ static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode
 
 static bool DecodeMovaps(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeSimdDirectionOperands(state, opcode))
 		return false;
 	state->instr->op = X86_MOVAPS;
@@ -3845,6 +3892,7 @@ static bool DecodeMovaps(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeMovapd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeSimdDirectionOperands(state, opcode))
 		return false;
 	state->instr->op = X86_MOVAPD;
@@ -3861,7 +3909,7 @@ static __inline bool DecodeCvtIntSimdOperandsMmx(X86DecoderState* const state, u
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, destSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(destSize, &state->instr->operands[0], modRm);
 	return true;
 }
 
@@ -3874,13 +3922,14 @@ static __inline bool DecodeCvtIntSimdOperands(X86DecoderState* const state, uint
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, destSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(destSize, &state->instr->operands[0], modRm);
 	return true;
 }
 
 
 static bool DecodeCvtpi2ps(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeCvtIntSimdOperandsMmx(state, 8))
 		return false;
 	state->instr->op = X86_CVTPI2PS;
@@ -3893,6 +3942,7 @@ static bool DecodeCvtsi2ss(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t operandSizes[] = {4, 4, 8};
 	const uint8_t srcSize = operandSizes[state->operandMode];
+	(void)opcode;
 	if (!DecodeCvtIntSimdOperands(state, srcSize))
 		return false;
 	state->instr->op = X86_CVTSI2SS;
@@ -3903,6 +3953,7 @@ static bool DecodeCvtsi2ss(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeCvtpi2pd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeCvtIntSimdOperandsMmx(state, 8))
 		return false;
 	state->instr->op = X86_CVTPI2PD;
@@ -3915,6 +3966,7 @@ static bool DecodeCvtsi2sd(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t operandSizes[] = {4, 4, 8};
 	const uint8_t srcSize = operandSizes[state->operandMode];
+	(void)opcode;
 	if (!DecodeCvtIntSimdOperands(state, srcSize))
 		return false;
 	state->instr->op = X86_CVTSI2SD;
@@ -3928,13 +3980,15 @@ static __inline bool DecodeMovntOperands(X86DecoderState* const state, uint8_t o
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (IsModRmRmFieldReg(modRm))
 		return false;
 	if (!DecodeModRmRmFieldMemory(state, destSize, &state->instr->operands[0], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[1], modRm);
 
 	return true;
 }
@@ -3988,7 +4042,7 @@ static bool DecodeCvtPsOperands(X86DecoderState* const state)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 8, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(8, &state->instr->operands[0], modRm);
 	return true;
 }
 
@@ -4015,7 +4069,7 @@ static bool DecodeCvttss2si(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm);
 	state->instr->op = X86_CVTTSS2SI;
 	state->instr->operandCount = 2;
 	return true;
@@ -4044,7 +4098,7 @@ static bool DecodeCvttsd2si(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm);
 	state->instr->op = X86_CVTTSD2SI;
 	state->instr->operandCount = 2;
 	return true;
@@ -4073,7 +4127,7 @@ static bool DecodeCvtss2si(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm);
 	state->instr->op = X86_CVTSS2SI;
 	state->instr->operandCount = 2;
 	return true;
@@ -4102,7 +4156,7 @@ static bool DecodeCvtsd2si(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegField(state, dstSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm);
 	state->instr->op = X86_CVTSD2SI;
 	state->instr->operandCount = 2;
 	return true;
@@ -4112,6 +4166,7 @@ static bool DecodeCvtsd2si(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeUcomiss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_UCOMISS;
@@ -4123,6 +4178,7 @@ static bool DecodeUcomiss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeComiss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_COMISS;
@@ -4134,6 +4190,7 @@ static bool DecodeComiss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeUcomisd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_UCOMISD;
@@ -4145,6 +4202,7 @@ static bool DecodeUcomisd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeComisd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_COMISD;
@@ -4210,11 +4268,13 @@ static bool DecodeMovmskps(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[1], modRm);
-	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[1], modRm);
+	DecodeModRmRegField(4, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_MOVMSKPS;
 	state->instr->operandCount = 2;
@@ -4228,11 +4288,13 @@ static bool DecodeMovmskpd(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 
-	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[1], modRm);
-	DecodeModRmRegField(state, 4, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[1], modRm);
+	DecodeModRmRegField(4, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_MOVMSKPD;
 	state->instr->operandCount = 2;
@@ -4244,6 +4306,7 @@ static bool DecodeMovmskpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSqrtps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SQRTPS;
@@ -4255,6 +4318,7 @@ static bool DecodeSqrtps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSqrtss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SQRTSS;
@@ -4266,6 +4330,7 @@ static bool DecodeSqrtss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSqrtpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SQRTPD;
@@ -4277,6 +4342,7 @@ static bool DecodeSqrtpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSqrtsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SQRTSD;
@@ -4288,6 +4354,7 @@ static bool DecodeSqrtsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeRsqrtps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_RSQRTPS;
@@ -4299,6 +4366,7 @@ static bool DecodeRsqrtps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeRsqrtss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_RSQRTSS;
@@ -4310,6 +4378,7 @@ static bool DecodeRsqrtss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeRcpps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_RCPPS;
@@ -4321,6 +4390,7 @@ static bool DecodeRcpps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeRcpss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_RCPSS;
@@ -4332,6 +4402,7 @@ static bool DecodeRcpss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAndps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ANDPS;
@@ -4343,6 +4414,7 @@ static bool DecodeAndps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAndpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ANDPD;
@@ -4354,6 +4426,7 @@ static bool DecodeAndpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAndnps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ANDNPS;
@@ -4365,6 +4438,7 @@ static bool DecodeAndnps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAndnpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ANDNPD;
@@ -4376,6 +4450,7 @@ static bool DecodeAndnpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeOrps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ORPS;
@@ -4387,6 +4462,7 @@ static bool DecodeOrps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeOrpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ORPD;
@@ -4398,6 +4474,7 @@ static bool DecodeOrpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeXorps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_XORPS;
@@ -4409,6 +4486,7 @@ static bool DecodeXorps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeXorpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_XORPD;
@@ -4420,6 +4498,7 @@ static bool DecodeXorpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAddps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ADDPS;
@@ -4431,6 +4510,7 @@ static bool DecodeAddps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAddss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ADDSS;
@@ -4442,6 +4522,7 @@ static bool DecodeAddss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAddpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ADDPD;
@@ -4453,6 +4534,7 @@ static bool DecodeAddpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeAddsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_ADDSD;
@@ -4464,6 +4546,7 @@ static bool DecodeAddsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMulps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MULPS;
@@ -4475,6 +4558,7 @@ static bool DecodeMulps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMulss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MULSS;
@@ -4486,6 +4570,7 @@ static bool DecodeMulss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMulpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MULPD;
@@ -4497,6 +4582,7 @@ static bool DecodeMulpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMulsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MULSD;
@@ -4508,6 +4594,7 @@ static bool DecodeMulsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSubps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SUBPS;
@@ -4519,6 +4606,7 @@ static bool DecodeSubps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSubss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SUBSS;
@@ -4530,6 +4618,7 @@ static bool DecodeSubss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSubpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SUBPD;
@@ -4541,6 +4630,7 @@ static bool DecodeSubpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSubsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_SUBSD;
@@ -4552,6 +4642,7 @@ static bool DecodeSubsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMinps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MINPS;
@@ -4563,6 +4654,7 @@ static bool DecodeMinps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMinss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MINSS;
@@ -4574,6 +4666,7 @@ static bool DecodeMinss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMinpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MINPD;
@@ -4585,6 +4678,7 @@ static bool DecodeMinpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMinsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MINSD;
@@ -4596,6 +4690,7 @@ static bool DecodeMinsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeDivps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_DIVPS;
@@ -4607,6 +4702,7 @@ static bool DecodeDivps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeDivss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_DIVSS;
@@ -4618,6 +4714,7 @@ static bool DecodeDivss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeDivpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_DIVPD;
@@ -4629,6 +4726,7 @@ static bool DecodeDivpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeDivsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_DIVSD;
@@ -4640,6 +4738,7 @@ static bool DecodeDivsd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMaxps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MAXPS;
@@ -4651,6 +4750,7 @@ static bool DecodeMaxps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMaxss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MAXSS;
@@ -4662,6 +4762,7 @@ static bool DecodeMaxss(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMaxpd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MAXPD;
@@ -4673,6 +4774,7 @@ static bool DecodeMaxpd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMaxsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MAXSD;
@@ -4693,7 +4795,7 @@ static __inline bool DecodeMmxSseUnpackOperands(X86DecoderState* const state)
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, regSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, regSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(regSize, &state->instr->operands[0], modRm);
 
 	// Lied about the sizes above to decode as SSE or MMX, now fix up the actual operand size here
 	state->instr->operands[1].size = srcSizes[regSel];
@@ -4705,6 +4807,7 @@ static __inline bool DecodeMmxSseUnpackOperands(X86DecoderState* const state)
 
 static bool DecodePunpcklbw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKLBW;
@@ -4715,6 +4818,7 @@ static bool DecodePunpcklbw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpcklwd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKLWD;
@@ -4725,6 +4829,7 @@ static bool DecodePunpcklwd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckldq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKLDQ;
@@ -4746,6 +4851,7 @@ static __inline bool DecodeMmxSsePackOperands(X86DecoderState* const state)
 
 static bool DecodePacksswb(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PACKSSWB;
@@ -4756,6 +4862,7 @@ static bool DecodePacksswb(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePcmpgtb(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PCMPGTB;
@@ -4766,6 +4873,7 @@ static bool DecodePcmpgtb(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePcmpgtw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PCMPGTW;
@@ -4776,6 +4884,7 @@ static bool DecodePcmpgtw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePcmpgtd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PCMPGTD;
@@ -4786,6 +4895,7 @@ static bool DecodePcmpgtd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePackuswb(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PACKUSWB;
@@ -4796,6 +4906,7 @@ static bool DecodePackuswb(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckhbw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKHBW;
@@ -4806,6 +4917,7 @@ static bool DecodePunpckhbw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckhwd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKHWD;
@@ -4816,6 +4928,7 @@ static bool DecodePunpckhwd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckhdq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSseUnpackOperands(state))
 		return false;
 	state->instr->op = X86_PUNPCKHDQ;
@@ -4826,6 +4939,7 @@ static bool DecodePunpckhdq(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePackssdw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeMmxSsePackOperands(state))
 		return false;
 	state->instr->op = X86_PACKSSDW;
@@ -4836,6 +4950,7 @@ static bool DecodePackssdw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpcklqdq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
@@ -4848,6 +4963,7 @@ static bool DecodePunpcklqdq(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePunpckhqdq(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
@@ -4871,7 +4987,7 @@ static bool DecodeMovd(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeModRmRmField(state, 4, &state->instr->operands[operand1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[operand0], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[operand0], modRm);
 
 	// Lied about the operand size above to decode as SSE reg, now fix it up
 	state->instr->operands[operand0].size = 8;
@@ -4942,12 +5058,14 @@ static __inline bool DecodePshuf(X86DecoderState* const state, X86Operation op, 
 
 static bool DecodePshufw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodePshuf(state, X86_PSHUFW, 8);
 }
 
 
 static bool DecodePshufhw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	// This uses half SSE registers. Decode as 16 byte then replace operand size
 	if (!DecodePshuf(state, X86_PSHUFHW, 16))
 		return false;
@@ -4959,12 +5077,14 @@ static bool DecodePshufhw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePshufd(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	return DecodePshuf(state, X86_PSHUFD, 16);
 }
 
 
 static bool DecodePshuflw(X86DecoderState* const state, uint8_t opcode)
 {
+	(void)opcode;
 	// This uses half SSE registers. Decode as 16 byte then replace operand size
 	if (!DecodePshuf(state, X86_PSHUFLW, 16))
 		return false;
@@ -4987,7 +5107,7 @@ static __inline bool DecodePackedSingleGroups(X86DecoderState* const state, cons
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[1], 1))
 		return false;
-	DecodeModRmRmFieldSimdReg(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[0], modRm);
 
 	reg = MODRM_REG(modRm);
 	state->instr->op = operations[reg];
@@ -5044,6 +5164,7 @@ static bool DecodeGroup14(X86DecoderState* const state, uint8_t opcode)
 			X86_INVALID, X86_INVALID, X86_PSLLQ, X86_PSLLDQ
 		},
 	};
+
 	(void)opcode;
 
 	if (!DecodePackedSingleGroups(state, operations[state->secondaryTable >> 1]))
@@ -5066,6 +5187,8 @@ static bool DecodeGroup17(X86DecoderState* const state, uint8_t opcode)
 		};
 	} args;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (MODRM_REG(modRm) != 0)
@@ -5073,7 +5196,7 @@ static bool DecodeGroup17(X86DecoderState* const state, uint8_t opcode)
 	if (IsModRmRmFieldReg(modRm))
 	{
 		// Lie and decode operands as 16 bytes to get SSE reg, then fix size up after
-		DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[0], modRm);
+		DecodeModRmRmFieldSimdReg(16, &state->instr->operands[0], modRm);
 		state->instr->operands[0].size = 8;
 	}
 	else
@@ -5097,12 +5220,15 @@ static bool DecodeGroup17(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeExtrq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
+
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
 
 	// Lied about the size to decode as SSE reg. Fix it up here.
 	state->instr->operands[0].size = 8;
@@ -5148,12 +5274,14 @@ static bool DecodeInsertqImm(X86DecoderState* const state, uint8_t opcode)
 		};
 	} args;
 
+	(void)opcode;
+
 	if (!Fetch(state, 3, args.bytes))
 		return false;
 	if (!IsModRmRmFieldReg(args.modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], args.modRm);
-	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], args.modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], args.modRm);
+	DecodeModRmRmFieldSimdReg(16, &state->instr->operands[1], args.modRm);
 
 	// This encoding is for 8 bytes of 2 SSE regs. Decode as 16 byte above and fixup size here
 	state->instr->operands[0].size = 8;
@@ -5173,12 +5301,14 @@ static bool DecodeInsertq(X86DecoderState* const state, uint8_t opcode)
 {
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!IsModRmRmFieldReg(modRm))
 		return false;
-	DecodeModRmRmFieldSimdReg(state, 16, &state->instr->operands[1], modRm);
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRmFieldSimdReg(16, &state->instr->operands[1], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
 
 	// Lied about the size to decode as SSE reg. Fix it up here.
 	state->instr->operands[0].size = 8;
@@ -5218,6 +5348,7 @@ static bool DecodeEmms(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeCvtps2pd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_CVTPS2PD;
@@ -5229,6 +5360,7 @@ static bool DecodeCvtps2pd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeCvtss2sd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_CVTSS2SD;
@@ -5240,6 +5372,7 @@ static bool DecodeCvtss2sd(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeCvtpd2ps(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_CVTPD2PS;
@@ -5251,6 +5384,7 @@ static bool DecodeCvtpd2ps(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeCvtsd2ss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_CVTSD2SS;
@@ -5264,11 +5398,13 @@ static bool DecodeCvtdq2ps(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, 16, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, operandSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_CVTDQ2PS;
 	state->instr->operandCount = 2;
@@ -5282,11 +5418,13 @@ static bool DecodeCvttps2dq(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_CVTTPS2DQ;
 	state->instr->operandCount = 2;
@@ -5300,11 +5438,13 @@ static bool DecodeCvtps2dq(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	uint8_t modRm;
 
+	(void)opcode;
+
 	if (!Fetch(state, 1, &modRm))
 		return false;
 	if (!DecodeModRmRmFieldSimd(state, operandSize, &state->instr->operands[1], modRm))
 		return false;
-	DecodeModRmRegFieldSimd(state, 16, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[0], modRm);
 
 	state->instr->op = X86_CVTPS2DQ;
 	state->instr->operandCount = 2;
@@ -5322,6 +5462,8 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 	};
 	uint8_t modRm;
 	uint8_t reg;
+
+	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm))
 		return false;
@@ -5344,6 +5486,7 @@ static bool DecodeGroup16(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovsldup(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0];
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MOVSLDUP;
@@ -5355,6 +5498,7 @@ static bool DecodeMovsldup(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovshdup(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0];
+	(void)opcode;
 	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->op = X86_MOVSHDUP;
@@ -5366,6 +5510,7 @@ static bool DecodeMovshdup(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovddup(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0];
+	(void)opcode;
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->operands[0].size = 16;
