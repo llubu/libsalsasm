@@ -1424,7 +1424,6 @@ static bool DecodeFPArithmeticPop(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[0].operandType = X86_ST0;
 	state->instr->operands[0].size = 10;
 
-	reg = MODRM_REG(modRm);
 	state->instr->operandCount = 2;
 
 	return true;

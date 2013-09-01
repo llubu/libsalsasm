@@ -463,10 +463,7 @@ static __inline uint8_t FindMsb(uint64_t i)
 	}
 
 	if ((i & 0x80000000) == 0)
-	{
-		i <<= 1;
 		bit -= 1;
-	}
 
 	return bit;
 }
