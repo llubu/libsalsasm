@@ -44,7 +44,6 @@ typedef struct X86DecoderState
 	X86Instruction* instr;
 	InstructionFetchCallback fetch;
 	void* ctxt;
-	bool valid;
 	X86DecoderMode mode;
 	X86DecoderMode addrMode;
 	X86DecoderMode operandMode;
