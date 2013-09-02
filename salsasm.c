@@ -303,7 +303,7 @@ static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64
 	case 4:
 		return snprintf(dest, maxLen, "%.08x", (uint32_t)immediate);
 	case 8:
-		return snprintf(dest, maxLen, "%.16llx", immediate);
+		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)immediate);
 	default:
 		return 0;
 	}
@@ -474,20 +474,20 @@ static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t
 {
 	const uint8_t bit = FindMsb(rip);
 	if (bit >= 32)
-		return snprintf(dest, maxLen, "%.16llx", rip);
+		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)rip);
 	else if (bit >= 16)
-		return snprintf(dest, maxLen, "%.08lx", (uint32_t)rip);
+		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)rip);
 	else
 		return snprintf(dest, maxLen, "%.04x", (uint16_t)rip);
 }
 
 
-void GetInstructionString(char* const dest, const size_t len, const char* format, const X86Instruction* const instr)
+void GetInstructionString(char* const dest, const size_t maxLen, const char* format, const X86Instruction* const instr)
 {
 	const char* src = format;
 	char* dstPtr = dest;
 	bool delimitter;
-	size_t remaining = len;
+	size_t remaining = maxLen;
 
 	delimitter = false;
 	for (; src && remaining; src++)
