@@ -51,12 +51,12 @@ static const char* const g_x86Mnemonics[] =
 	"cvtpd2ps", "cvtpi2pd", "cvtpi2ps", "cvtps2dq", "cvtps2pd", "cvtps2pi",
 	"cvtsd2si", "cvtsd2ss", "cvtsi2sd", "cvtsi2ss", "cvtss2sd", "cvtss2si",
 	"cvttpd2dq", "cvttpd2pi", "cvttps2dq", "cvttps2pi", "cvttsd2si", "cvttss2si",
-	"cvttps2d", "cwd", "cdq", "cqo", "daa", "dec", "div", "divpd",
-	"divps", "divsd", "divss", "dppd", "emms", "extractps", "extrq",
+	"cvttps2d", "cwd", "cdq", "cqo", "daa", "das", "dec", "div", "divpd",
+	"divps", "divsd", "divss", "dppd", "dpps", "emms", "enter", "extractps", "extrq",
 	"f2xm1", "fabs", "fadd", "faddp", "fbld", "fbstp", "fchs", "fclex",
 	"fcmovb", "fcmovbe", "fcmove", "fcmovnb", "fcmovnbe", "fcmovne", "fcmovnu",
-	"fcmovu", "fcom", "fcom2", "fcomi", "fcomip", "fcomp3", "fcomp5",
-	"fcompp", "fdecstp", "fdiv", "fdivp", "fdivr", "fdivrp", "femms", "ffree",
+	"fcmovu", "fcom", "fcom2", "fcomi", "fcomip", "fcomp", "fcomp3", "fcomp5",
+	"fcompp", "fcos", "fdecstp", "fdiv", "fdivp", "fdivr", "fdivrp", "femms", "ffree",
 	"ffreep", "fiadd", "ficom", "ficomp", "fidiv", "fidivr", "fild", "fimul",
 	"fincstp", "finit", "fist", "fistp", "fisttp", "fisub", "fisubr",
 	"fld", "fld1", "fldcw", "fldenv", "fldl2e", "fldl2t", "fldlg2", "fldln2",
@@ -68,10 +68,10 @@ static const char* const g_x86Mnemonics[] =
 	"fucomi", "fucomip", "fucomp", "fucompp", "fwait", "wait", "fxam", "fxch",
 	"fxch4", "fxch7", "fxrstor", "fxsave", "fxtract", "fyl2x", "fyl2xp1", "getsec",
 	"haddpd", "haddps", "hint_nop", "hlt", "hsubpd", "hsubps", "idiv", "imul",
-	"in", "inc", "ins", "insb", "insw", "insd", "insertps", "insertq", "int", "int1",
+	"in", "inc", "ins", "insb", "insw", "insd", "insertps", "insertq", "int", "int1", "int3",
 	"icebp", "into", "invd", "invept", "invlpg", "invlpga", "invvpid", "iret", "iretd",
 	"iretq", "jb", "jnae", "jc", "jbe", "jna", "jcxz", "jecxz", "jrcxz",
-	"jl", "jnge", "jle", "jng", "jmp", "jmpf", "jnc", "jnb", "jae",
+	"jl", "jnge", "jle", "jng", "jmpn", "jmpf", "jnc", "jnb", "jae",
 	"ja", "jnbe", "jnl", "jge", "jnle", "jg", "jno", "jpo", "jnp",
 	"jns", "jnz", "jne", "jo", "jp", "jpe", "js", "jz", "je", "lahf",
 	"lar", "lddqu", "ldmxcsr", "lds", "lea", "leave", "les", "lfence",
@@ -83,7 +83,7 @@ static const char* const g_x86Mnemonics[] =
 	"movdq2q", "movdqa", "movdqu", "movhlps", "movhpd", "movhps", "movlhps",
 	"movlpd", "movlps", "movmskpd", "movmskps", "movntdq", "movntdqa", "movnti",
 	"movntpd", "movntps", "movntq", "movntss", "movntsd", "movq2dq", "movs", "movsb", "movsw", "movsq",
-	"movsd""," "movshdup", "movsldup", "movss", "movsx", "movsxd", "movupd", "movups", "movzx",
+	"movsd","movshdup", "movsldup", "movss", "movsx", "movsxd", "movupd", "movups", "movzx",
 	"mpsadbw", "mul", "mulpd", "mulps", "mulsd", "mulss", "mwait", "neg",
 	"nop", "not", "or", "orpd", "orps", "out", "outs", "outsb", "outsw",
 	"outsd", "pabsb", "pabsd", "pabsw", "packssdw", "packsswb", "packusdw",
@@ -96,7 +96,8 @@ static const char* const g_x86Mnemonics[] =
 	"pfsqrt", "pfsub", "pfadd", "pfcmpgt", "pfrcpit1", "pfrsqit1", "pfsubr", "pfacc",
 	"pfcmpeq", "pfmul", "pfrcpit2", "pmulhrw", "pswapd", "pavgusb",
 	"phaddd", "phaddsw", "phaddw", "phminposuw", "phsubd", "phsubsw",
-	"phsubw", "pinsrb", "pinsrd", "pinsrq", "pinsrw", "pmaddubsw", "pmaddwd",
+	"phsubw", "pi2fw", "pi2fd", "pf2iw", "pf2id",
+	"pinsrb", "pinsrd", "pinsrq", "pinsrw", "pmaddubsw", "pmaddwd",
 	"pmaxsb", "pmaxsd", "pmaxsw", "pmaxub", "pmaxud", "pmaxuw", "pminsb",
 	"pminsd", "pminsw", "pminub", "pminud", "pminuw", "pmovmskb", "pmovsxbd",
 	"pmovsxbq", "pmovsxbw", "pmovsxdq", "pmovsxwd", "pmovsxwq", "pmovzxbd",
@@ -107,8 +108,7 @@ static const char* const g_x86Mnemonics[] =
 	"psadbw", "pshufb", "pshufd", "pshufhw", "pshuflw", "pshufw", "psignb",
 	"psignd", "psignw", "pslld", "pslldq", "psllq", "psllw", "psrad", "psraw", "psrld",
 	"psrldq", "psrlq", "psrlw", "psubb", "psubd", "psubq", "psubsb", "psubsw",
-	"psubusb", "psubusw", "psubw", "pi2fw", "pi2fd", "pf2iw", "pf2id",
-	"ptest", "punpckhbw", "punpckhdq",
+	"psubusb", "psubusw", "psubw", "ptest", "punpckhbw", "punpckhdq",
 	"punpckhqdq", "punpckhwd", "punpcklbw", "punpckldq", "punpcklqdq",
 	"punpcklwd", "push", "pusha", "pushad", "pushf", "pushfq", "pushfd",
 	"pxor", "rcl", "rcpps", "rcpss", "rcr", "rdmsr", "rdpmc", "rdtsc", "rdtscp",
@@ -164,7 +164,7 @@ static const char* const g_x86Mnemonics[] =
 	"vpunpckhqdq", "vpunpcklbw", "vpunpcklwd", "vpunpckldq", "vpuncklqdq",
 	"vpxor", "vshufpd", "vsqrtpd", "vsqrtsd", "vsubpd", "vsubsd",
 	"vucomisd", "vunpckhpd", "vunpckhps", "vunpcklpd", "vunpcklps",
-	"vxorpd", "vaddps",  "vaddss", "vandps", "vandnps", "vcmppS",
+	"vxorpd", "vaddps",  "vaddss", "vandps", "vandnps", "vcmpps",
 	"vcmpss", "vcomiss", "vcvtsi2ss", "vcvtss2si", "vcvttss2si",
 	"vdivps", "vldmxcsr", "vmaxps", "vmaxss", "vminps", "vminss",
 	"vmovaps", "vmovhps", "vmovlhps", "vmovlps", "vmovmskps",
@@ -420,9 +420,39 @@ static size_t PrintOperands(char* const dest, size_t const maxLen, const X86Oper
 }
 
 
-static size_t PrintInstruction(char* const dest, const size_t len, const X86Operation op)
+static size_t PrintInstruction(char* const dest, const size_t maxLen, const X86Instruction* const instr)
 {
-	return snprintf(dest, len, "%s", g_x86Mnemonics[op]);
+	const char* mnemonic = g_x86Mnemonics[instr->op];
+	char* dstPtr = dest;
+	size_t remaining = maxLen;
+	size_t len;
+
+	if (instr->op == X86_INVALID)
+		mnemonic = "??";
+
+	if (instr->flags & X86_FLAG_LOCK)
+	{
+		len = snprintf(dstPtr, remaining, "lock ");
+		dstPtr += len;
+		remaining -= len;
+	}
+	if (instr->flags & X86_FLAG_REPE)
+	{
+		len = snprintf(dstPtr, remaining, "rep ");
+		dstPtr += len;
+		remaining -= len;
+	}
+	if (instr->flags & X86_FLAG_REPNE)
+	{
+		len = snprintf(dstPtr, remaining, "repne ");
+		dstPtr += len;
+		remaining -= len;
+	}
+
+	len = snprintf(dstPtr, remaining, "%s", mnemonic);
+	remaining -= len;
+
+	return (maxLen - remaining);
 }
 
 
@@ -513,9 +543,14 @@ void GetInstructionString(char* const dest, const size_t maxLen, const char* for
 			switch (*src)
 			{
 			case 'i':
-				len = PrintInstruction(dstPtr, remaining, instr->op);
+				len = PrintInstruction(dstPtr, remaining, instr);
 				break;
 			case 'o':
+				if (instr->op == X86_INVALID)
+				{
+					len = 0;
+					break;
+				}
 				len = PrintOperands(dstPtr, remaining, instr->operands);
 				break;
 			case 'b':
