@@ -319,6 +319,7 @@ typedef struct X86Instruction
 	uint8_t operandCount;
 	uint16_t flags;
 	size_t length;
+	uint8_t bytes[15];
 	uint64_t rip;
 } X86Instruction;
 

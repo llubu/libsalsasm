@@ -137,22 +137,22 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 static const X86Operand g_sibTable[768] =
 {
 	// Mod 0
-	MODRM_SIB_OPERAND_COL(0, X86_NONE),
 	MODRM_SIB_OPERAND_COL(1, X86_NONE),
 	MODRM_SIB_OPERAND_COL(2, X86_NONE),
-	MODRM_SIB_OPERAND_COL(3, X86_NONE),
+	MODRM_SIB_OPERAND_COL(4, X86_NONE),
+	MODRM_SIB_OPERAND_COL(8, X86_NONE),
 
 	// Mod 1,
-	MODRM_SIB_OPERAND_COL(0, X86_EBP),
 	MODRM_SIB_OPERAND_COL(1, X86_EBP),
 	MODRM_SIB_OPERAND_COL(2, X86_EBP),
-	MODRM_SIB_OPERAND_COL(3, X86_EBP),
+	MODRM_SIB_OPERAND_COL(4, X86_EBP),
+	MODRM_SIB_OPERAND_COL(8, X86_EBP),
 
 	// Mod 2
-	MODRM_SIB_OPERAND_COL(0, X86_EBP),
 	MODRM_SIB_OPERAND_COL(1, X86_EBP),
 	MODRM_SIB_OPERAND_COL(2, X86_EBP),
-	MODRM_SIB_OPERAND_COL(3, X86_EBP),
+	MODRM_SIB_OPERAND_COL(4, X86_EBP),
+	MODRM_SIB_OPERAND_COL(8, X86_EBP),
 };
 
 static const ModRmRmOperand* const g_modRmRmOperands[4] =
@@ -245,11 +245,13 @@ static __inline void InitImmediateUnsigned(X86Operand* const operand, uint64_t v
 
 static __inline bool Fetch(X86DecoderState* const state, size_t len, uint8_t* result)
 {
-	if (!state->fetch(state->ctxt, len, result))
+	if ((state->instr->length == 15) || (!state->fetch(state->ctxt, len, result)))
 	{
 		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
 	}
+	memcpy(&state->instr->bytes[state->currentByte], result, len);
+	state->currentByte += (uint8_t)len;
 	state->instr->length += len;
 	return true;
 }

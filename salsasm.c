@@ -349,7 +349,7 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 		remaining -= len;
 		if (operand->scale > 1)
 		{
-			len = snprintf(dstPtr, remaining, "*%d", operand->scale << 3);
+			len = snprintf(dstPtr, remaining, "*%d", operand->scale);
 			dstPtr += len;
 			remaining -= len;
 		}
@@ -512,6 +512,36 @@ static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t
 }
 
 
+static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* const bytes, const size_t instrLen)
+{
+	size_t i;
+	size_t remaining;
+	char* dstPtr;
+	size_t limit;
+
+	dstPtr = dest;
+	remaining = maxLen;
+	limit = ((maxLen >> 1) > instrLen) ? instrLen : (maxLen >> 1);
+	for (i = 0; i < limit; i++)
+	{
+		size_t len = snprintf(dstPtr, remaining, "%.02x", bytes[i]);
+		remaining -= len;
+		dstPtr += len;
+	}
+
+	// Pad with spaces so we get a constant field width
+	limit = ((maxLen >> 1) > (15 - instrLen)) ? (15 - instrLen) : (maxLen >> 1);
+	for (i = 0; i < limit; i++)
+	{
+		size_t len = snprintf(dstPtr, remaining, "  ");
+		remaining -= len;
+		dstPtr += len;
+	}
+
+	return (maxLen - remaining);
+}
+
+
 void GetInstructionString(char* const dest, const size_t maxLen, const char* format, const X86Instruction* const instr)
 {
 	const char* src = format;
@@ -554,8 +584,7 @@ void GetInstructionString(char* const dest, const size_t maxLen, const char* for
 				len = PrintOperands(dstPtr, remaining, instr->operands);
 				break;
 			case 'b':
-				// len = PrintBytes();
-				len = 0;
+				len = PrintBytes(dstPtr, remaining, instr->bytes, instr->length);
 				break;
 			case 'a':
 				len = PrintAddress(dstPtr, remaining, instr->rip);
