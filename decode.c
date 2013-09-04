@@ -2737,6 +2737,11 @@ static bool DecodeSys(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[] = {X86_INVALID, X86_SYSCALL, X86_CLTS, X86_SYSRET};
 	const uint8_t op = (opcode & 3);
+	if (((state->mode != X86_64BIT) && (opcode & 1) != 0))
+	{
+		// SYSCALL and SYSRET are only valid in 64bit mode.
+		return false;
+	}
 	state->instr->op = operations[op];
 	return true;
 }
@@ -5952,7 +5957,7 @@ static const InstructionDecoder g_secondaryDecodersNormal[256] =
 {
 	// Row 0
 	DecodeGroup6, DecodeGroup7, DecodeLoadSegmentInfo, DecodeLoadSegmentInfo,
-	DecodeSys, DecodeSys, DecodeSys, DecodeSys,
+	DecodeInvalid, DecodeSys, DecodeSys, DecodeSys,
 	DecodeInvd, DecodeInvd, DecodeInvalid, DecodeUd2,
 	DecodeInvalid, DecodeGroupP, DecodeFemms, Decode3dnow,
 
