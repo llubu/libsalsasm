@@ -494,10 +494,10 @@ static bool DecodePushPopSegment(X86DecoderState* const state, uint8_t opcode)
 	static const X86Operation operations[2] = {X86_PUSH, X86_POP};
 	static const X86OperandType operands[2][2] = {{X86_ES, X86_SS}, {X86_CS, X86_DS}};
 	const size_t operandSelector = ((opcode & 0xf) >> 3);
+	static const uint8_t operandSizes[3] = {2, 2};
 
-	// Docs say otherwise, but on real hardware 32bit mode does not modify
-	// upper 2 bytes. 64bit mode zero extends to 8 bytes.
-	static const uint8_t operandSizes[3] = {2, 2, 8};
+	if (state->mode == X86_64BIT)
+		return false;
 
 	state->instr->op = operations[opcode & 1];
 	state->instr->operandCount = 1;
@@ -513,6 +513,8 @@ static bool DecodeAscii(X86DecoderState* const state, uint8_t opcode)
 {
 	const size_t opCol = (opcode >> 3) & 1;
 	static const X86Operation ops[2][2] = {{X86_DAA, X86_AAA}, {X86_DAS, X86_AAS}};
+	if (state->mode == X86_64BIT)
+		return false;
 	state->instr->op = ops[opCol][(opcode >> 4) & 1];
 	return true;
 }
@@ -684,6 +686,12 @@ static bool DecodeGroup1(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t immSize = immOperandSizes[immOperandSizeBits];
 	uint8_t modRm;
 	uint8_t reg;
+
+	if ((state->mode == X86_64BIT) && (opcode == 0x82))
+	{
+		// This form is invalid in 64bit mode
+		return false;
+	}
 
 	// Fetch the modrm byte
 	if (!Fetch(state, 1, &modRm))
@@ -896,6 +904,11 @@ static __inline bool DecodeLoadSegment(X86DecoderState* const state, X86Operatio
 static bool DecodeLes(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
+	if (state->mode == X86_64BIT)
+	{
+		// FIXME: VEX escape
+		return false;
+	}
 	if (!DecodeLoadSegment(state, X86_LES))
 		return false;
 	return true;
@@ -905,6 +918,11 @@ static bool DecodeLes(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeLds(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
+	if (state->mode == X86_64BIT)
+	{
+		// FIXME: VEX escape
+		return false;
+	}
 	if (!DecodeLoadSegment(state, X86_LDS))
 		return false;
 	return true;
@@ -966,6 +984,9 @@ static bool DecodeAsciiAdjust(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operation[4] = {X86_AAM, X86_AAD};
 	const uint8_t op = (opcode & 1);
+
+	if (state->mode == X86_64BIT)
+		return false;
 
 	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
 		return false;
@@ -2164,6 +2185,11 @@ static bool DecodeCallJmpRelative(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeJmpFar(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
+	if (state->mode == X86_64BIT)
+	{
+		// This form is invalid in 64bit mode
+		return false;
+	}
 	DecodeFarOperand(state);
 	state->instr->op = X86_JMPF;
 	state->instr->operandCount = 2;
@@ -2287,11 +2313,14 @@ static bool DecodeSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 	state->lastBytePrefix = true;
 
 	// Only the last segment override prefix matters.
-	state->instr->flags &= ~(X86_FLAG_SEGMENT_OVERRIDE_CS | X86_FLAG_SEGMENT_OVERRIDE_SS
-		| X86_FLAG_SEGMENT_OVERRIDE_DS | X86_FLAG_SEGMENT_OVERRIDE_ES | X86_FLAG_SEGMENT_OVERRIDE_FS
-		| X86_FLAG_SEGMENT_OVERRIDE_GS);
+	if (state->mode != X86_64BIT)
+	{
+		state->instr->flags &= ~(X86_FLAG_SEGMENT_OVERRIDE_CS | X86_FLAG_SEGMENT_OVERRIDE_SS
+			| X86_FLAG_SEGMENT_OVERRIDE_DS | X86_FLAG_SEGMENT_OVERRIDE_ES | X86_FLAG_SEGMENT_OVERRIDE_FS
+			| X86_FLAG_SEGMENT_OVERRIDE_GS);
 
-	state->instr->flags |= segments[rowBit][colBit];
+		state->instr->flags |= segments[rowBit][colBit];
+	}
 
 	return ProcessPrimaryOpcode(state);
 }
@@ -3877,9 +3906,7 @@ static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
 	const uint8_t operandSel = (opcode & 1);
-	// FIXME: The operand size theoretically should
-	// not be altered by addr mode override prefix?
-	const uint8_t operandSize = operandSizes[state->addrMode];
+	const uint8_t operandSize = operandSizes[state->mode];
 	uint8_t modRm;
 	uint8_t reg;
 
