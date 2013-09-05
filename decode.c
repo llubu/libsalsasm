@@ -5392,7 +5392,7 @@ static bool DecodeInsertqImm(X86DecoderState* const state, uint8_t opcode)
 {
 	union
 	{
-		uint8_t bytes[2];
+		uint8_t bytes[3];
 		struct
 		{
 			uint8_t modRm;
