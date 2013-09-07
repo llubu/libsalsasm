@@ -524,8 +524,10 @@ static bool DecodeInc(X86DecoderState* const state, uint8_t opcode)
 {
 	if (state->addrMode == X86_64BIT)
 	{
-		state->instr->flags |= X86_FLAG_INVALID_64BIT_MODE;
-		return false;
+		state->lastBytePrefix = true;
+		state->lastPrefixRex = true;
+		state->rex = (opcode & 0xf);
+		return true;
 	}
 	DecodeOneOperandOpcodeGpr(state, opcode);
 	state->instr->op = X86_INC;
@@ -538,8 +540,10 @@ static bool DecodeDec(X86DecoderState* const state, uint8_t opcode)
 {
 	if (state->addrMode == X86_64BIT)
 	{
-		state->instr->flags |= X86_FLAG_INVALID_64BIT_MODE;
-		return false;
+		state->lastBytePrefix = true;
+		state->lastPrefixRex = true;
+		state->rex = (opcode & 0xf);
+		return true;
 	}
 	DecodeOneOperandOpcodeGpr(state, opcode);
 	state->instr->op = X86_DEC;
@@ -4306,12 +4310,20 @@ static bool DecodeMsrTscSys(X86DecoderState* const state, uint8_t opcode)
 
 static bool Decode38Table(X86DecoderState* const state, uint8_t opcode)
 {
+	// Grab a byte from the machine
+	if (!Fetch(state, 1, &opcode))
+		return false;
+
 	return g_0f38Decoders[opcode](state, opcode);
 }
 
 
 static bool Decode3aTable(X86DecoderState* const state, uint8_t opcode)
 {
+	// Grab a byte from the machine
+	if (!Fetch(state, 1, &opcode))
+		return false;
+
 	return g_0f3aDecoders[opcode](state, opcode);
 }
 
@@ -6082,7 +6094,7 @@ static bool DecodePshufb(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6095,7 +6107,7 @@ static bool DecodePhaddw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6108,7 +6120,7 @@ static bool DecodePhaddd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6121,7 +6133,7 @@ static bool DecodePhaddsw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6134,7 +6146,7 @@ static bool DecodePmaddubsw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6143,41 +6155,41 @@ static bool DecodePmaddubsw(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodePsubw(X86DecoderState* const state, uint8_t opcode)
+static bool DecodePhsubw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
-	state->instr->op = X86_PSUBW;
+	state->instr->op = X86_PHSUBW;
 	return true;
 }
 
 
-static bool DecodePsubd(X86DecoderState* const state, uint8_t opcode)
+static bool DecodePhsubd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
-	state->instr->op = X86_PSUBD;
+	state->instr->op = X86_PHSUBD;
 	return true;
 }
 
 
-static bool DecodePsubsw(X86DecoderState* const state, uint8_t opcode)
+static bool DecodePhsubsw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
-	state->instr->op = X86_PSUBSW;
+	state->instr->op = X86_PHSUBSW;
 	return true;
 }
 
@@ -6186,7 +6198,7 @@ static bool DecodePsignb(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6199,7 +6211,7 @@ static bool DecodePsignw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6212,7 +6224,7 @@ static bool DecodePsignd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6225,7 +6237,7 @@ static bool DecodePmulhrsw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6240,7 +6252,7 @@ static bool DecodePblendvb(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6255,7 +6267,7 @@ static bool DecodeBlendvps(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6270,7 +6282,7 @@ static bool DecodeBlendvpd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6285,7 +6297,7 @@ static bool DecodePtest(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	// Lied about size above to decode as correct register, now fix up here.
 	state->instr->operands[0].size = 8;
@@ -6301,7 +6313,7 @@ static bool DecodePabsb(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6314,7 +6326,7 @@ static bool DecodePabsw(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6327,7 +6339,7 @@ static bool DecodePabsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6336,13 +6348,36 @@ static bool DecodePabsd(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodePmovsxbw(X86DecoderState* const state, uint8_t opcode)
+static __inline bool DecodePmovxOperands(X86DecoderState* const state, uint8_t srcSize)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
+	uint8_t modRm;
+
+	if (!Fetch(state, 1, &modRm))
+		return false;
+
+	if (!IsModRmRmFieldReg(modRm))
+	{
+		if (!DecodeModRmRmFieldMemory(state, srcSize, &state->instr->operands[1], modRm))
+			return false;
+	}
+	else
+	{
+		DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[1], modRm);
+	}
+
+	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[0], modRm);
+
+	return true;
+}
+
+
+static bool DecodePmovsxbw(X86DecoderState* const state, uint8_t opcode)
+{
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6357,7 +6392,7 @@ static bool DecodePmovsxbd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 4))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6372,7 +6407,7 @@ static bool DecodePmovsxbq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 2))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6387,7 +6422,7 @@ static bool DecodePmovsxwd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6402,7 +6437,7 @@ static bool DecodePmovsxwq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 4))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6417,7 +6452,7 @@ static bool DecodePmovsxdq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6432,7 +6467,7 @@ static bool DecodePmuldq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6447,11 +6482,11 @@ static bool DecodePcmpeqq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
-	state->instr->op = X86_PMULDQ;
+	state->instr->op = X86_PCMPEQQ;
 	return true;
 }
 
@@ -6480,7 +6515,7 @@ static bool DecodePackusdw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6495,7 +6530,7 @@ static bool DecodePmovzxbw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6510,7 +6545,7 @@ static bool DecodePmovzxbd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 4))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6525,7 +6560,7 @@ static bool DecodePmovzxbq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 2))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6540,7 +6575,7 @@ static bool DecodePmovzxwd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6555,7 +6590,7 @@ static bool DecodePmovzxwq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 4))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6570,7 +6605,7 @@ static bool DecodePmovzxdq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodePmovxOperands(state, 8))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6585,7 +6620,7 @@ static bool DecodePcmpgtq(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6600,7 +6635,7 @@ static bool DecodePminsb(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6615,7 +6650,7 @@ static bool DecodePminsd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6630,7 +6665,7 @@ static bool DecodePminuw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6645,7 +6680,7 @@ static bool DecodePminud(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6660,7 +6695,7 @@ static bool DecodePmaxsb(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6675,7 +6710,7 @@ static bool DecodePmaxsd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6690,7 +6725,7 @@ static bool DecodePmaxuw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6705,7 +6740,7 @@ static bool DecodePmaxud(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6720,7 +6755,7 @@ static bool DecodePmulld(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6735,7 +6770,7 @@ static bool DecodePhminposuw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
@@ -6750,11 +6785,8 @@ static bool DecodeAesimc(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
-	// Lied about size above to decode as correct register, now fix up here.
-	state->instr->operands[0].size = 8;
-	state->instr->operands[1].size = 8;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
 	state->instr->op = X86_AESIMC;
@@ -6768,11 +6800,8 @@ static bool DecodeAesenc(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
-	// Lied about size above to decode as correct register, now fix up here.
-	state->instr->operands[0].size = 8;
-	state->instr->operands[1].size = 8;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
 	state->instr->op = X86_AESENC;
@@ -6786,11 +6815,8 @@ static bool DecodeAesenclast(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
-	// Lied about size above to decode as correct register, now fix up here.
-	state->instr->operands[0].size = 8;
-	state->instr->operands[1].size = 8;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
 	state->instr->op = X86_AESENCLAST;
@@ -6804,11 +6830,8 @@ static bool DecodeAesdec(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
-	// Lied about size above to decode as correct register, now fix up here.
-	state->instr->operands[0].size = 8;
-	state->instr->operands[1].size = 8;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
 	state->instr->op = X86_AESDEC;
@@ -6822,11 +6845,8 @@ static bool DecodeAesdeclast(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
-	// Lied about size above to decode as correct register, now fix up here.
-	state->instr->operands[0].size = 8;
-	state->instr->operands[1].size = 8;
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 2;
 	state->instr->op = X86_AESDECLAST;
@@ -6884,7 +6904,7 @@ static const InstructionDecoder g_0f38Decoders[256] =
 {
 	// Row 0
 	DecodePshufb, DecodePhaddw, DecodePhaddd, DecodePhaddsw,
-	DecodePmaddubsw, DecodePsubw, DecodePsubd, DecodePsubsw,
+	DecodePmaddubsw, DecodePhsubw, DecodePhsubd, DecodePhsubsw,
 	DecodePsignb, DecodePsignw, DecodePsignd, DecodePmulhrsw,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
@@ -6985,7 +7005,7 @@ static bool DecodeRoundps(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7001,7 +7021,7 @@ static bool DecodeRoundpd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7017,7 +7037,7 @@ static bool DecodeRoundss(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7033,7 +7053,7 @@ static bool DecodeRoundsd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7049,7 +7069,7 @@ static bool DecodeBlendps(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7065,7 +7085,7 @@ static bool DecodeBlendpd(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7081,7 +7101,7 @@ static bool DecodePblendw(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7095,7 +7115,7 @@ static bool DecodePalignr(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_simdOperandSizes[state->secondaryTable >> 1];
 	(void)opcode;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7329,7 +7349,7 @@ static bool DecodeDpps(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7350,7 +7370,7 @@ static bool DecodeDppd(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7371,7 +7391,7 @@ static bool DecodeMpsadbw(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7392,7 +7412,7 @@ static bool DecodePclmulqdq(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, operandSize, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7411,7 +7431,7 @@ static bool DecodePcmpestrm(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7430,7 +7450,7 @@ static bool DecodePcmpestri(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7449,7 +7469,7 @@ static bool DecodePcmpistrm(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7468,7 +7488,7 @@ static bool DecodePcmpistri(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7487,7 +7507,7 @@ static bool DecodeAesKeygenAssist(X86DecoderState* const state, uint8_t opcode)
 
 	if (state->secondaryTable != SECONDARY_TABLE_66)
 		return false;
-	if (!DecodeModRmSimd(state, 16, state->instr->operands))
+	if (!DecodeModRmSimdRev(state, 16, state->instr->operands))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
