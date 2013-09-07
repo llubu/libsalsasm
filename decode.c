@@ -7146,7 +7146,7 @@ static bool DecodePextrb(X86DecoderState* const state, uint8_t opcode)
 	{
 		static const uint8_t srcSizes[] = {4, 4, 8};
 		const uint8_t srcSize = srcSizes[state->operandMode];
-		DecodeModRmRmFieldReg(srcSize, &state->instr->operands[1], modRm);
+		DecodeModRmRmFieldReg(srcSize, &state->instr->operands[0], modRm);
 	}
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7180,7 +7180,7 @@ static bool DecodePextrw3a(X86DecoderState* const state, uint8_t opcode)
 	{
 		static const uint8_t srcSizes[] = {4, 4, 8};
 		const uint8_t srcSize = srcSizes[state->operandMode];
-		DecodeModRmRmFieldReg(srcSize, &state->instr->operands[1], modRm);
+		DecodeModRmRmFieldReg(srcSize, &state->instr->operands[0], modRm);
 	}
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7195,9 +7195,9 @@ static bool DecodePextrw3a(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePextrdq(X86DecoderState* const state, uint8_t opcode)
 {
-	static const uint8_t srcSizes[] = {4, 8};
+	static const uint8_t destSizes[] = {4, 8};
 	static const X86Operation operations[] = {X86_PEXTRD, X86_PEXTRQ};
-	const uint8_t srcSize = srcSizes[0]; // FIXME: REX
+	const uint8_t destSize = destSizes[0]; // FIXME: REX
 	uint8_t modRm;
 
 	(void)opcode;
@@ -7211,8 +7211,8 @@ static bool DecodePextrdq(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRmFieldReg(srcSize, &state->instr->operands[0], modRm);
-	DecodeModRmRegFieldSimd(srcSize, &state->instr->operands[1], modRm);
+	DecodeModRmRmFieldReg(destSize, &state->instr->operands[0], modRm);
+	DecodeModRmRegFieldSimd(16, &state->instr->operands[1], modRm);
 
 	state->instr->op = operations[0]; // FIXME: REX prefix makes this PEXTRQ
 	state->instr->operandCount = 3;
@@ -7240,9 +7240,9 @@ static bool DecodeExtractps(X86DecoderState* const state, uint8_t opcode)
 	}
 	else
 	{
-		static const uint8_t srcSizes[] = {4, 4, 8};
-		const uint8_t srcSize = srcSizes[state->operandMode];
-		DecodeModRmRmFieldReg(srcSize, &state->instr->operands[1], modRm);
+		static const uint8_t destSizes[] = {4, 4, 8};
+		const uint8_t destSize = destSizes[state->operandMode];
+		DecodeModRmRmFieldReg(destSize, &state->instr->operands[0], modRm);
 	}
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
@@ -7316,7 +7316,7 @@ static bool DecodePinsrd(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t srcSizes[] = {4, 8};
 	static const X86Operation operations[] = {X86_PINSRD, X86_PINSRQ};
-	const uint8_t destSize = g_sseOperandSizes[state->operandMode];
+	const uint8_t destSize = g_sseOperandSizes[0]; // FIXME: VEX
 	const uint8_t srcSize = srcSizes[0]; // FIXME: REX
 	uint8_t modRm;
 
@@ -7343,7 +7343,7 @@ static bool DecodePinsrd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeDpps(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_sseOperandSizes[state->operandMode];
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 
 	(void)opcode;
 
@@ -7364,7 +7364,7 @@ static bool DecodeDpps(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeDppd(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_sseOperandSizes[state->operandMode];
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 
 	(void)opcode;
 
@@ -7385,7 +7385,7 @@ static bool DecodeDppd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeMpsadbw(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_sseOperandSizes[state->operandMode];
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 
 	(void)opcode;
 
@@ -7406,7 +7406,7 @@ static bool DecodeMpsadbw(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePclmulqdq(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_sseOperandSizes[state->operandMode];
+	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 
 	(void)opcode;
 
@@ -7476,7 +7476,7 @@ static bool DecodePcmpistrm(X86DecoderState* const state, uint8_t opcode)
 
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 3;
-	state->instr->op = X86_PCMPESTRM;
+	state->instr->op = X86_PCMPISTRM;
 
 	return true;
 }
@@ -7495,7 +7495,7 @@ static bool DecodePcmpistri(X86DecoderState* const state, uint8_t opcode)
 
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
 	state->instr->operandCount = 3;
-	state->instr->op = X86_PCMPESTRI;
+	state->instr->op = X86_PCMPISTRI;
 
 	return true;
 }
