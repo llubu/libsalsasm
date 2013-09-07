@@ -7206,12 +7206,10 @@ static bool DecodePextrdq(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!Fetch(state, 1, &modRm))
 		return false;
-
-	if (!IsModRmRmFieldReg(modRm))
+	if (!DecodeModRmRmField(state, destSize, &state->instr->operands[0], modRm))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRmFieldReg(destSize, &state->instr->operands[0], modRm);
 	DecodeModRmRegFieldSimd(16, &state->instr->operands[1], modRm);
 
 	state->instr->op = operations[0]; // FIXME: REX prefix makes this PEXTRQ
@@ -7312,7 +7310,7 @@ static bool DecodeInsertps(X86DecoderState* const state, uint8_t opcode)
 }
 
 
-static bool DecodePinsrd(X86DecoderState* const state, uint8_t opcode)
+static bool DecodePinsrdq(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t srcSizes[] = {4, 8};
 	static const X86Operation operations[] = {X86_PINSRD, X86_PINSRQ};
@@ -7326,11 +7324,10 @@ static bool DecodePinsrd(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	if (!Fetch(state, 1, &modRm))
 		return false;
-	if (!IsModRmRmFieldReg(modRm))
+	if (!DecodeModRmRmField(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
 	if (!DecodeImmediate(state, &state->instr->operands[2], 1))
 		return false;
-	DecodeModRmRmFieldReg(srcSize, &state->instr->operands[1], modRm);
 	DecodeModRmRegFieldSimd(destSize, &state->instr->operands[0], modRm);
 
 	state->instr->flags &= ~X86_FLAG_OPERAND_SIZE_OVERRIDE;
@@ -7535,7 +7532,7 @@ static const InstructionDecoder g_0f3aDecoders[256] =
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 2
-	DecodePinsrb, DecodeInsertps, DecodePinsrd, DecodeInvalid,
+	DecodePinsrb, DecodeInsertps, DecodePinsrdq, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
