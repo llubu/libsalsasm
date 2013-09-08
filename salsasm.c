@@ -636,7 +636,6 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 	state.mode = X86_32BIT;
 	state.addrMode = X86_32BIT;
 	state.operandMode = X86_32BIT;
-	state.instr->flags = X86_FLAG_NONE;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
 	state.instr->rip = eip;
@@ -650,5 +649,20 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 
 bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	return false;
+	X86DecoderState state = {0};
+
+	state.fetch = fetch;
+	state.ctxt = ctxt;
+	state.instr = instr;
+	state.mode = X86_64BIT;
+	state.addrMode = X86_64BIT;
+	state.operandMode = X86_64BIT;
+
+	memset(state.instr, 0, sizeof(X86Instruction));
+	state.instr->rip = rip;
+
+	if (!DecodePrimaryOpcodeTable(&state))
+		return false;
+
+	return true;
 }

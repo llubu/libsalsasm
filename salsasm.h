@@ -257,38 +257,6 @@ typedef struct X86Operand
 	int64_t immediate;
 } X86Operand;
 
-typedef enum X86InstructionPrefixes
-{
-	// Legacy prefixes
-
-	// Group 1 Prefixes (lock and rep**)
-	X86_LOCK,
-	X86_REP,
-	X86_REPE,
-	X86_REPNE,
-
-	// Group 2 Prefixes (segment and branch hints)
-	X86_SEG_CS,
-	X86_SEG_SS,
-	X86_SEG_DS,
-	X86_SEG_ES,
-	X86_SEG_FS,
-	X86_SEG_GS,
-
-	X86_NOT_TAKEN,
-	X86_TAKEN,
-
-	// Group 3
-	X86_OPERAND_SIZE,
-
-	// Group 4
-	X86_ADDRESS_SIZE,
-
-	X86_REX,
-	X86_VEX,
-	X86_XOP,
-} X86InstructionPrefixes;
-
 typedef enum X86InstructionFlags
 {
 	X86_FLAG_NONE = 0,
@@ -297,7 +265,6 @@ typedef enum X86InstructionFlags
 	X86_FLAG_REPNE = 4,
 	X86_FLAG_REPE = 8,
 
-	// FIXME: This is a decoder flag really
 	X86_FLAG_INSUFFICIENT_LENGTH = 16,
 	X86_FLAG_INVALID_64BIT_MODE = 32,
 
@@ -309,7 +276,10 @@ typedef enum X86InstructionFlags
 	X86_FLAG_SEGMENT_OVERRIDE_DS = 1024,
 	X86_FLAG_SEGMENT_OVERRIDE_ES = 2048,
 	X86_FLAG_SEGMENT_OVERRIDE_FS = 4096,
-	X86_FLAG_SEGMENT_OVERRIDE_GS = 8192
+	X86_FLAG_SEGMENT_OVERRIDE_GS = 8192,
+
+	X86_FLAG_XACQUIRE = 16384,
+	X86_FLAG_XRELEASE = 32767
 } X86InstructionFlags;
 
 typedef struct X86Instruction
