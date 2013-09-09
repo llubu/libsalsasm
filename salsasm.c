@@ -656,7 +656,7 @@ bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86
 	state.instr = instr;
 	state.mode = X86_64BIT;
 	state.addrMode = X86_64BIT;
-	state.operandMode = X86_64BIT;
+	state.operandMode = X86_32BIT;
 
 	memset(state.instr, 0, sizeof(X86Instruction));
 	state.instr->rip = rip;

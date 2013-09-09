@@ -39,8 +39,8 @@ typedef struct ModRmRmOperand
 } ModRmRmOperand;
 
 #define MODRM_MOD(modRm) (((modRm) >> 6) & 3)
-#define MODRM_REG(modRma) (((modRm) >> 3) & 7)
-#define MODRM_RM(modRma) ((modRm) & 7)
+#define MODRM_REG(modRm) (((modRm) >> 3) & 7)
+#define MODRM_RM(modRm) ((modRm) & 7)
 
 #define REX_W(rex) (((rex) >> 3) & 1)
 #define REX_R(rex) (((rex) >> 2) & 1)
@@ -116,7 +116,7 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 	MODRM_RM_OPERANDS(MEM, EDI, NONE, 4, 0),
 };
 
-static const ModRmRmOperand g_modRmRmOperands64[24] =
+static const ModRmRmOperand g_modRmRmOperands64[64] =
 {
 	// Mod 00
 	MODRM_RM_OPERANDS(MEM, RAX, NONE, 0, 0),
@@ -124,7 +124,7 @@ static const ModRmRmOperand g_modRmRmOperands64[24] =
 	MODRM_RM_OPERANDS(MEM, RDX, NONE, 0, 0),
 	MODRM_RM_OPERANDS(MEM, RBX, NONE, 0, 0),
 	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 1), // SIB
-	MODRM_RM_OPERANDS(MEM, NONE, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, RIP, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, RSI, NONE, 0, 0),
 	MODRM_RM_OPERANDS(MEM, RDI, NONE, 0, 0),
 
@@ -147,6 +147,46 @@ static const ModRmRmOperand g_modRmRmOperands64[24] =
 	MODRM_RM_OPERANDS(MEM, RBP, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, RSI, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, RDI, NONE, 4, 0),
+
+	// Mod 11 (Pad)
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+
+	// REX.B, Mod 00
+	MODRM_RM_OPERANDS(MEM, R8, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R9, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R10, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R11, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R12, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R13, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R14, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R15, NONE, 0, 0),
+
+	// REX.B, Mod 01
+	MODRM_RM_OPERANDS(MEM, R8, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R9, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R10, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R11, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R12, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R13, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R14, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R15, NONE, 1, 0),
+
+	// REX.B, Mod 10
+	MODRM_RM_OPERANDS(MEM, R8, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R9, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R10, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R11, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R12, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R13, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R14, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R15, NONE, 4, 0)
 };
 
 #define MODRM_SIB_OPERAND_ROW32(scale, index, base5) \
@@ -210,7 +250,28 @@ static const X86Operand g_sibTable32[768] =
 	MODRM_SIB_OPERAND_ROW64(scale, X86_RSI, base5), \
 	MODRM_SIB_OPERAND_ROW64(scale, X86_RDI, base5)
 
-static const X86Operand g_sibTable64[1568] =
+#define MODRM_SIB_OPERAND_ROW64_REX(scale, index) \
+	{X86_MEM, {X86_R8, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R9, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R10, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R11, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R12, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R13, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R14, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R15, index}, X86_DS, 4, scale, 0}
+
+#define MODRM_SIB_OPERAND_COL64_REX(scale) \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R8), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R9), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R10), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R11), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R12), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R13), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R14), \
+	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R15)
+
+
+static const X86Operand g_sibTable64[3072] =
 {
 	// Mod 0
 	MODRM_SIB_OPERAND_COL64(1, X86_NONE),
@@ -219,16 +280,34 @@ static const X86Operand g_sibTable64[1568] =
 	MODRM_SIB_OPERAND_COL64(8, X86_NONE),
 
 	// Mod 1,
-	MODRM_SIB_OPERAND_COL64(1, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(2, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(4, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(8, X86_EBP),
+	MODRM_SIB_OPERAND_COL64(1, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(2, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(4, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(8, X86_RBP),
 
 	// Mod 2
-	MODRM_SIB_OPERAND_COL64(1, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(2, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(4, X86_EBP),
-	MODRM_SIB_OPERAND_COL64(8, X86_EBP),
+	MODRM_SIB_OPERAND_COL64(1, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(2, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(4, X86_RBP),
+	MODRM_SIB_OPERAND_COL64(8, X86_RBP),
+
+	// Mod 0, REX
+	MODRM_SIB_OPERAND_COL64_REX(1),
+	MODRM_SIB_OPERAND_COL64_REX(2),
+	MODRM_SIB_OPERAND_COL64_REX(4),
+	MODRM_SIB_OPERAND_COL64_REX(8),
+
+	// Mod 1, REX
+	MODRM_SIB_OPERAND_COL64_REX(1),
+	MODRM_SIB_OPERAND_COL64_REX(2),
+	MODRM_SIB_OPERAND_COL64_REX(4),
+	MODRM_SIB_OPERAND_COL64_REX(8),
+
+	// Mod 2, REX
+	MODRM_SIB_OPERAND_COL64_REX(1),
+	MODRM_SIB_OPERAND_COL64_REX(2),
+	MODRM_SIB_OPERAND_COL64_REX(4),
+	MODRM_SIB_OPERAND_COL64_REX(8),
 };
 
 static const X86Operand* const g_sibTables[2] = {g_sibTable32, g_sibTable64};
@@ -246,6 +325,8 @@ static const uint8_t g_simdOperandSizes[4] = {8, 16, 32, 64};
 
 static const X86OperandType g_gpr8[16] =
 {
+	// FIXME: x64
+	// X86_AL, X86_CL, X86_DL, X86_BL, X86_BPL, X86_SPL, X86_SIL, X86_DIL,
 	X86_AL, X86_CL, X86_DL, X86_BL, X86_AH, X86_CH, X86_DH, X86_BH,
 	X86_R8B, X86_R9B, X86_R10B, X86_R11B, X86_R12B, X86_R13B, X86_R14B, X86_R15B
 };
@@ -253,19 +334,19 @@ static const X86OperandType g_gpr8[16] =
 static const X86OperandType g_gpr16[16] =
 {
 	X86_AX, X86_CX, X86_DX, X86_BX, X86_SP, X86_BP, X86_SI, X86_DI,
-	X86_R9W, X86_R10W, X86_R11W, X86_R12W, X86_R13W, X86_R14W, X86_R15W
+	X86_R8W, X86_R9W, X86_R10W, X86_R11W, X86_R12W, X86_R13W, X86_R14W, X86_R15W
 };
 
 static const X86OperandType g_gpr32[16] =
 {
 	X86_EAX, X86_ECX, X86_EDX, X86_EBX, X86_ESP, X86_EBP, X86_ESI, X86_EDI,
-	X86_R9D, X86_R10D, X86_R11D, X86_R12D, X86_R13D, X86_R14D, X86_R15D
+	X86_R8D, X86_R9D, X86_R10D, X86_R11D, X86_R12D, X86_R13D, X86_R14D, X86_R15D
 };
 
 static const X86OperandType g_gpr64[16] =
 {
 	X86_RAX, X86_RCX, X86_RDX, X86_RBX, X86_RSP, X86_RBP, X86_RSI, X86_RDI,
-	X86_R9, X86_R10, X86_R11, X86_R12, X86_R13, X86_R14, X86_R15
+	X86_R8, X86_R9, X86_R10, X86_R11, X86_R12, X86_R13, X86_R14, X86_R15
 };
 
 static const X86OperandType* const g_gprOperandTypes[5] = {g_gpr8, g_gpr16, g_gpr32, 0, g_gpr64};
@@ -303,7 +384,6 @@ static const X86OperandType g_fpSources[8] =
 	X86_ST0, X86_ST1, X86_ST2, X86_ST3,
 	X86_ST4, X86_ST5, X86_ST6, X86_ST7
 };
-
 
 static __inline void InitImmediate(X86Operand* const operand, uint64_t val, uint8_t size)
 {
@@ -349,7 +429,7 @@ static __inline bool ProcessPrimaryOpcode(X86DecoderState* const state)
 	if (state->lastBytePrefix && state->prefixesDone)
 		return false;
 
-	state->prefixesDone = !state->lastBytePrefix;
+	state->prefixesDone = ((!state->lastBytePrefix) || (state->lastPrefixRex));
 
 	return true;
 }
@@ -381,7 +461,7 @@ static __inline void DecodeModRmRmFieldReg(int8_t operandSize, X86Operand* const
 static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint8_t operandSize,
 		X86Operand* const operand, uint8_t modRm)
 {
-	const size_t operandTableIndex = (((modRm >> 3) & 0x18) | (modRm & 7));
+	const size_t operandTableIndex = ((REX_B(state->rex) << 5) | ((modRm >> 3) & 0x18) | MODRM_RM(modRm));
 	const uint8_t table = (state->addrMode >> 1);
 	const ModRmRmOperand* const operandTableEntry = &g_modRmRmOperands[state->addrMode][operandTableIndex];
 	uint8_t dispBytes = operandTableEntry->dispBytes;
@@ -599,14 +679,22 @@ static bool DecodeAscii(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static __inline void EvaluateRexPrefix(X86DecoderState* const state, uint8_t opcode)
+{
+	const X86DecoderMode operandModes[2] = {state->operandMode, X86_64BIT};
+	state->rex = (opcode & 0xf);
+	state->lastBytePrefix = true;
+	state->lastPrefixRex = true;
+	state->operandMode = operandModes[REX_W(state->rex)];
+}
+
+
 static bool DecodeInc(X86DecoderState* const state, uint8_t opcode)
 {
-	if (state->addrMode == X86_64BIT)
+	if (state->mode == X86_64BIT)
 	{
-		state->lastBytePrefix = true;
-		state->lastPrefixRex = true;
-		state->rex = (opcode & 0xf);
-		return true;
+		EvaluateRexPrefix(state, opcode);
+		return ProcessPrimaryOpcode(state);
 	}
 	DecodeOneOperandOpcodeGpr(state, opcode);
 	state->instr->op = X86_INC;
@@ -617,12 +705,10 @@ static bool DecodeInc(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeDec(X86DecoderState* const state, uint8_t opcode)
 {
-	if (state->addrMode == X86_64BIT)
+	if (state->mode == X86_64BIT)
 	{
-		state->lastBytePrefix = true;
-		state->lastPrefixRex = true;
-		state->rex = (opcode & 0xf);
-		return true;
+		EvaluateRexPrefix(state, opcode);
+		return ProcessPrimaryOpcode(state);
 	}
 	DecodeOneOperandOpcodeGpr(state, opcode);
 	state->instr->op = X86_DEC;
@@ -634,8 +720,17 @@ static bool DecodeDec(X86DecoderState* const state, uint8_t opcode)
 static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation operations[2] = {X86_PUSH, X86_POP};
+	const uint8_t operandSizes[] =
+	{
+		g_decoderModeSizeXref[state->operandMode],
+		g_decoderModeSizeXref[state->operandMode],
+		8
+	};
+	const uint8_t reg = (REX_W(state->rex << 3) | (opcode & 7));
+	const uint8_t operandSize = operandSizes[state->mode];
 
-	DecodeOneOperandOpcodeGpr(state, opcode);
+	// Operand size is ignored in 64bit mode and can only encode 64bit GPRs.
+	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize);
 
 	state->instr->op = operations[(opcode >> 3) & 1];
 	state->instr->operandCount = 1;
@@ -1757,10 +1852,7 @@ static bool DecodeImulImm(X86DecoderState* const state, uint8_t opcode)
 
 	// First decode the destination and first source
 	if (!DecodeModRmRev(state, operandSize, state->instr->operands))
-	{
-		state->instr->flags |= X86_FLAG_INSUFFICIENT_LENGTH;
 		return false;
-	}
 
 	// Now grab the second source, an immediate
 	if (!DecodeImmediate(state, &state->instr->operands[2], immSize))
@@ -2036,7 +2128,7 @@ static bool DecodePushPopFlags(X86DecoderState* const state, uint8_t opcode)
 		{X86_POPF, X86_POPFD, X86_POPFQ},
 	};
 	const uint8_t operation = (opcode & 1);
-	state->instr->op = ops[operation][state->operandMode];
+	state->instr->op = ops[operation][state->mode];
 	return true;
 }
 
@@ -2227,12 +2319,9 @@ static bool DecodeInt(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeInto(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
-
 	if (state->addrMode == X86_64BIT)
 		return false;
-
 	state->instr->op = X86_INTO;
-
 	return true;
 }
 
@@ -2351,7 +2440,7 @@ static bool DecodeGroup4(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup5(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	static const X86Operation operations[8] =
 	{
 		X86_INC, X86_DEC, X86_CALLN, X86_CALLF,
@@ -2371,6 +2460,12 @@ static bool DecodeGroup5(X86DecoderState* const state, uint8_t opcode)
 	{
 		if (IsModRmRmFieldReg(modRm))
 			return false;
+	}
+	else if ((reg == 2) || (reg == 4) || (reg == 6))
+	{
+		// f64 -- Operand size is forced to 64 bit no matter what.
+		const uint8_t operandSizes[] = {operandSize, operandSize, 8};
+		operandSize = operandSizes[state->mode];
 	}
 
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
@@ -2428,7 +2523,7 @@ static bool DecodeExtendedSegmentPrefix(X86DecoderState* const state, uint8_t op
 
 static bool DecodeOperandSizePrefix(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_32BIT};
+	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_16BIT};
 	(void)opcode;
 	state->lastBytePrefix = true;
 	state->operandMode = modes[state->mode];
