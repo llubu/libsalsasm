@@ -2122,13 +2122,25 @@ static bool DecodeFWait(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodePushPopFlags(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation ops[2][3] =
+	static const X86Operation ops[2][2][3] =
 	{
-		{X86_PUSHF, X86_PUSHFD, X86_PUSHFQ},
-		{X86_POPF, X86_POPFD, X86_POPFQ},
+		{
+			// Normal case
+			{X86_PUSHF, X86_PUSHFD, X86_PUSHFQ},
+			{X86_POPF, X86_POPFD, X86_POPFQ},
+		},
+		{
+			// Overrides
+			{X86_PUSHFD, X86_PUSHF, X86_PUSHF},
+			{X86_POPFD, X86_POPF, X86_POPF},
+		}
 	};
 	const uint8_t operation = (opcode & 1);
-	state->instr->op = ops[operation][state->mode];
+	const uint8_t override = ((state->instr->flags & X86_FLAG_OPERAND_SIZE_OVERRIDE) != 0);
+
+	// PUSHF/POPF do not obey normal operand size override semantics.
+	state->instr->op = ops[override][operation][state->mode];
+
 	return true;
 }
 
