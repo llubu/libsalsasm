@@ -2097,7 +2097,7 @@ static bool DecodeCallFar(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
 
-	if (state->operandMode == X86_64BIT)
+	if (state->mode == X86_64BIT)
 	{
 		// This form is invalid in 64bit mode
 		return false;
