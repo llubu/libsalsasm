@@ -544,14 +544,17 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 
 void GetInstructionString(char* const dest, const size_t maxLen, const char* format, const X86Instruction* const instr)
 {
-	const char* src = format;
+	const char* src;
 	char* dstPtr = dest;
 	bool delimitter;
 	size_t remaining = maxLen;
 
 	delimitter = false;
-	for (; src && remaining; src++)
+	for (src = format; *src; src++)
 	{
+		if (remaining == 0)
+			break;
+
 		if (!delimitter)
 		{
 			if (*src != '%')
