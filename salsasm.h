@@ -257,29 +257,37 @@ typedef struct X86Operand
 	int64_t immediate;
 } X86Operand;
 
-typedef enum X86InstructionFlags
+typedef struct X86InstructionFlags
 {
-	X86_FLAG_NONE = 0,
-	X86_FLAG_LOCK = 1,
-	X86_FLAG_REP = 2,
-	X86_FLAG_REPNE = 4,
-	X86_FLAG_REPE = 8,
+	uint32_t lock : 1;
+	uint32_t rep : 1;
+	uint32_t repne : 1;
+	uint32_t repe : 1;
 
-	X86_FLAG_INSUFFICIENT_LENGTH = 16,
-	X86_FLAG_INVALID_64BIT_MODE = 32,
+	uint32_t insufficientLength : 1;
+	uint32_t invalidIn64BitMode : 1;
 
-	X86_FLAG_OPERAND_SIZE_OVERRIDE = 64,
-	X86_FLAG_ADDR_SIZE_OVERRIDE = 128,
+	uint32_t operandSizeOverride : 1;
+	uint32_t addrSizeOverride : 1;
 
-	X86_FLAG_SEGMENT_OVERRIDE_CS = 256,
-	X86_FLAG_SEGMENT_OVERRIDE_SS = 512,
-	X86_FLAG_SEGMENT_OVERRIDE_DS = 1024,
-	X86_FLAG_SEGMENT_OVERRIDE_ES = 2048,
-	X86_FLAG_SEGMENT_OVERRIDE_FS = 4096,
-	X86_FLAG_SEGMENT_OVERRIDE_GS = 8192,
+	uint32_t xacquire : 1;
+	uint32_t xrelease : 1;
 
-	X86_FLAG_XACQUIRE = 16384,
-	X86_FLAG_XRELEASE = 32767
+	union
+	{
+		struct
+		{
+			uint32_t segmentOverrideCS : 1;
+			uint32_t segmentOverrideSS : 1;
+			uint32_t segmentOverrideDS : 1;
+			uint32_t segmentOverrideES : 1;
+			uint32_t segmentOverrideFS : 1;
+			uint32_t segmentOverrideGS : 1;
+			uint32_t pad : 2;
+		};
+		uint32_t segments : 8;
+	};
+
 } X86InstructionFlags;
 
 typedef struct X86Instruction
@@ -287,7 +295,7 @@ typedef struct X86Instruction
 	X86Operation op;
 	X86Operand operands[4];
 	uint8_t operandCount;
-	uint16_t flags;
+	X86InstructionFlags flags;
 	size_t length;
 	uint8_t bytes[15];
 	uint64_t rip;

@@ -430,19 +430,19 @@ static size_t PrintInstruction(char* const dest, const size_t maxLen, const X86I
 	if (instr->op == X86_INVALID)
 		mnemonic = "??";
 
-	if (instr->flags & X86_FLAG_LOCK)
+	if (instr->flags.lock)
 	{
 		len = snprintf(dstPtr, remaining, "lock ");
 		dstPtr += len;
 		remaining -= len;
 	}
-	if (instr->flags & X86_FLAG_REPE)
+	if (instr->flags.repe)
 	{
 		len = snprintf(dstPtr, remaining, "rep ");
 		dstPtr += len;
 		remaining -= len;
 	}
-	if (instr->flags & X86_FLAG_REPNE)
+	if (instr->flags.repne)
 	{
 		len = snprintf(dstPtr, remaining, "repne ");
 		dstPtr += len;
