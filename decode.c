@@ -47,6 +47,10 @@ typedef struct ModRmRmOperand
 #define REX_X(rex) (((rex) >> 1) & 1)
 #define REX_B(rex) ((rex) & 1)
 
+#define SIB_SCALE(sib) (((sib) >> 6) & 3)
+#define SIB_INDEX(sib) (((sib) >> 3) & 7)
+#define SIB_BASE(sib) ((sib) & 7)
+
 #define MODRM_RM_OPERANDS(type, base, index, disp, sib) \
 	{{X86_ ## type, {X86_ ## base, X86_ ## index}, X86_DS, 0, 0, 0}, disp, sib}
 
@@ -197,7 +201,15 @@ static const ModRmRmOperand g_modRmRmOperands64[64] =
 	{X86_MEM, {X86_ESP, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {base5, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_ESI, index}, X86_DS, 4, scale, 0}, \
-	{X86_MEM, {X86_EDI, index}, X86_DS, 4, scale, 0}
+	{X86_MEM, {X86_EDI, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R8D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R9D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R10D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R11D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R12D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R13D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R14D, index}, X86_DS, 4, scale, 0}, \
+	{X86_MEM, {X86_R15D, index}, X86_DS, 4, scale, 0}
 
 #define MODRM_SIB_OPERAND_COL32(scale, base5) \
 	MODRM_SIB_OPERAND_ROW32(scale, X86_EAX, base5), \
@@ -207,9 +219,17 @@ static const ModRmRmOperand g_modRmRmOperands64[64] =
 	MODRM_SIB_OPERAND_ROW32(0, X86_NONE, base5), \
 	MODRM_SIB_OPERAND_ROW32(scale, X86_EBP, base5), \
 	MODRM_SIB_OPERAND_ROW32(scale, X86_ESI, base5), \
-	MODRM_SIB_OPERAND_ROW32(scale, X86_EDI, base5) \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_EDI, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R8D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R9D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R10D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R11D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R12D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R13D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R14D, base5), \
+	MODRM_SIB_OPERAND_ROW32(scale, X86_R15D, base5)
 
-static const X86Operand g_sibTable32[768] =
+static const X86Operand g_sibTable32[4096] =
 {
 	// Mod 0
 	MODRM_SIB_OPERAND_COL32(1, X86_NONE),
@@ -228,6 +248,12 @@ static const X86Operand g_sibTable32[768] =
 	MODRM_SIB_OPERAND_COL32(2, X86_EBP),
 	MODRM_SIB_OPERAND_COL32(4, X86_EBP),
 	MODRM_SIB_OPERAND_COL32(8, X86_EBP),
+
+	// Mod 3 (Pad)
+	MODRM_SIB_OPERAND_COL32(0, X86_NONE),
+	MODRM_SIB_OPERAND_COL32(0, X86_NONE),
+	MODRM_SIB_OPERAND_COL32(0, X86_NONE),
+	MODRM_SIB_OPERAND_COL32(0, X86_NONE),
 };
 
 #define MODRM_SIB_OPERAND_ROW64(scale, index, base5) \
@@ -238,19 +264,7 @@ static const X86Operand g_sibTable32[768] =
 	{X86_MEM, {X86_RSP, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {base5, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_RSI, index}, X86_DS, 4, scale, 0}, \
-	{X86_MEM, {X86_RDI, index}, X86_DS, 4, scale, 0}
-
-#define MODRM_SIB_OPERAND_COL64(scale, base5) \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RAX, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RCX, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RDX, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RBX, base5), \
-	MODRM_SIB_OPERAND_ROW64(0, X86_NONE, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RBP, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RSI, base5), \
-	MODRM_SIB_OPERAND_ROW64(scale, X86_RDI, base5)
-
-#define MODRM_SIB_OPERAND_ROW64_REX(scale, index) \
+	{X86_MEM, {X86_RDI, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_R8, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_R9, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_R10, index}, X86_DS, 4, scale, 0}, \
@@ -260,26 +274,26 @@ static const X86Operand g_sibTable32[768] =
 	{X86_MEM, {X86_R14, index}, X86_DS, 4, scale, 0}, \
 	{X86_MEM, {X86_R15, index}, X86_DS, 4, scale, 0}
 
-#define MODRM_SIB_OPERAND_COL64_REX(scale) \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RAX), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RCX), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RDX), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RBX), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_NONE), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RBP), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RSI), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_RDI), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R8), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R9), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R10), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R11), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R12), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R13), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R14), \
-	MODRM_SIB_OPERAND_ROW64_REX(scale, X86_R15)
+#define MODRM_SIB_OPERAND_COL64(scale, base5) \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RAX, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RCX, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RDX, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RBX, base5), \
+	MODRM_SIB_OPERAND_ROW64(0, X86_NONE, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RBP, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RSI, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_RDI, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R8, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R9, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R10, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R11, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R12, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R13, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R14, base5), \
+	MODRM_SIB_OPERAND_ROW64(scale, X86_R15, base5)
 
 
-static const X86Operand g_sibTable64[3072] =
+static const X86Operand g_sibTable64[4096] =
 {
 	// Mod 0
 	MODRM_SIB_OPERAND_COL64(1, X86_NONE),
@@ -304,24 +318,6 @@ static const X86Operand g_sibTable64[3072] =
 	MODRM_SIB_OPERAND_COL64(0, X86_NONE),
 	MODRM_SIB_OPERAND_COL64(0, X86_NONE),
 	MODRM_SIB_OPERAND_COL64(0, X86_NONE),
-
-	// Mod 0, REX
-	MODRM_SIB_OPERAND_COL64_REX(1),
-	MODRM_SIB_OPERAND_COL64_REX(2),
-	MODRM_SIB_OPERAND_COL64_REX(4),
-	MODRM_SIB_OPERAND_COL64_REX(8),
-
-	// Mod 1, REX
-	MODRM_SIB_OPERAND_COL64_REX(1),
-	MODRM_SIB_OPERAND_COL64_REX(2),
-	MODRM_SIB_OPERAND_COL64_REX(4),
-	MODRM_SIB_OPERAND_COL64_REX(8),
-
-	// Mod 2, REX
-	MODRM_SIB_OPERAND_COL64_REX(1),
-	MODRM_SIB_OPERAND_COL64_REX(2),
-	MODRM_SIB_OPERAND_COL64_REX(4),
-	MODRM_SIB_OPERAND_COL64_REX(8),
 };
 
 static const X86Operand* const g_sibTables[2] = {g_sibTable32, g_sibTable64};
@@ -480,7 +476,8 @@ static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint
 
 	if (operandTableEntry->sib)
 	{
-		const uint8_t table = (state->addrMode >> 1);
+		static const uint8_t tables[] = {0, 0, 1};
+		const uint8_t table = tables[state->addrMode];
 		static const uint8_t modDispBytes[] = {4, 1, 4};
 		uint8_t sib;
 		uint16_t operandSel;
@@ -490,9 +487,10 @@ static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint
 			return false;
 
 		// Compute lookup indices
-		operandSel = ((REX_X(state->rex) << 11)
-			| (REX_B(state->rex) << 10) | ((modRm & 0xc0) << 2) | sib);
 		mod = MODRM_MOD(modRm);
+		operandSel = ((mod << 10) | (SIB_SCALE(sib) << 8)
+			| ((REX_X(state->rex) << 7) | (SIB_INDEX(sib) << 4))
+			| ((REX_B(state->rex) << 3) | SIB_BASE(sib)));
 
 		memcpy(operand, &g_sibTables[table][operandSel], sizeof(X86Operand));
 
