@@ -35,7 +35,7 @@ typedef union ModRmByte
 	uint8_t byte;
 } ModRmByte;
 
-typedef struct REXByte
+typedef union RexByte
 {
 	struct
 	{
