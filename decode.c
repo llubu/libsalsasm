@@ -693,7 +693,7 @@ static __inline void EvaluateRexPrefix(X86DecoderState* const state, uint8_t opc
 		X86_32BIT, X86_16BIT,
 		X86_64BIT, X86_64BIT
 	};
-	const uint8_t mode = (opcode >> 3) // REX.W
+	const uint8_t mode = ((opcode >> 3) & 1) // REX.W
 		| state->instr->flags.operandSizeOverride;
 
 	state->rex.byte = opcode;
