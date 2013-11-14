@@ -24,6 +24,41 @@
 
 #include "salsasm.h"
 
+typedef union ModRmByte
+{
+	struct
+	{
+		uint8_t rm : 3;
+		uint8_t reg : 3;
+		uint8_t mod : 2;
+	};
+	uint8_t byte;
+} ModRmByte;
+
+typedef struct REXByte
+{
+	struct
+	{
+		uint8_t b : 1;
+		uint8_t x : 1;
+		uint8_t r : 1;
+		uint8_t w : 1;
+		uint8_t rex : 4;
+	};
+	uint8_t byte;
+} RexByte;
+
+typedef union SIBByte
+{
+	struct
+	{
+		uint8_t base : 3;
+		uint8_t index : 3;
+		uint8_t scale : 2;
+	};
+	uint8_t byte;
+} SibByte;
+
 typedef enum SecondaryOpCodeTable
 {
 	SECONDARY_TABLE_NORMAL = 0,
@@ -49,7 +84,7 @@ typedef struct X86DecoderState
 	X86DecoderMode operandMode;
 	bool lastPrefixRex;
 	bool lastBytePrefix;
-	uint8_t rex;
+	RexByte rex;
 	uint8_t currentByte;
 	SecondaryOpCodeTable secondaryTable;
 } X86DecoderState;
