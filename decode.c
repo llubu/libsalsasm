@@ -489,6 +489,11 @@ static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint
 		if (state->mode == X86_64BIT)
 		{
 			// RIP Relative address mode
+			if ((modRm.mod == 0) && (modRm.rm == 5))
+			{
+				operand->components[0] = X86_RIP;
+				dispBytes = 4;
+			}
 		}
 	}
 	operand->size = operandSize;

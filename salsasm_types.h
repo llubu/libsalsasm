@@ -70,8 +70,8 @@ typedef enum SecondaryOpCodeTable
 typedef enum X86DecoderMode
 {
 	X86_16BIT = 0,
-	X86_32BIT,
-	X86_64BIT
+	X86_32BIT = 1,
+	X86_64BIT = 2
 } X86DecoderMode;
 
 typedef struct X86DecoderState
