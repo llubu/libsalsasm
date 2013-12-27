@@ -4484,7 +4484,7 @@ static bool DecodeMsrTscSys(X86DecoderState* const state, uint8_t opcode)
 		X86_WRMSR, X86_RDTSC, X86_RDMSR, X86_RDPMC,
 		X86_SYSENTER, X86_SYSEXIT
 	};
-	static const bool validx64[] = {true, true, true, false, false};
+	static const bool validx64[] = {true, true, true, true, false, false};
 	const uint8_t operation = (opcode & 7);
 
 	if ((!validx64[operation]) && (state->addrMode == X86_64BIT))
