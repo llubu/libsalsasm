@@ -82,8 +82,6 @@ typedef struct X86DecoderState
 	X86DecoderMode mode;
 	X86DecoderMode addrMode;
 	X86DecoderMode operandMode;
-	bool lastPrefixRex;
-	bool lastBytePrefix;
 	RexByte rex;
 	uint8_t currentByte;
 	SecondaryOpCodeTable secondaryTable;

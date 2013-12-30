@@ -322,9 +322,13 @@ static const uint8_t g_simdOperandSizes[4] = {8, 16, 32, 64};
 
 static const X86OperandType g_gpr8[16] =
 {
-	// FIXME: x64
-	// X86_AL, X86_CL, X86_DL, X86_BL, X86_BPL, X86_SPL, X86_SIL, X86_DIL,
 	X86_AL, X86_CL, X86_DL, X86_BL, X86_AH, X86_CH, X86_DH, X86_BH,
+	X86_R8B, X86_R9B, X86_R10B, X86_R11B, X86_R12B, X86_R13B, X86_R14B, X86_R15B
+};
+
+static const X86OperandType g_gprRex8[16] =
+{
+	X86_AL, X86_CL, X86_DL, X86_BL, X86_SPL, X86_BPL, X86_SIL, X86_DIL,
 	X86_R8B, X86_R9B, X86_R10B, X86_R11B, X86_R12B, X86_R13B, X86_R14B, X86_R15B
 };
 
@@ -423,10 +427,6 @@ static __inline bool ProcessPrimaryOpcode(X86DecoderState* const state)
 	if (!g_primaryDecoders[opcode](state, opcode))
 		return false;
 
-	// Once REX prefixes start, no other prefixes can follow
-	if (state->lastBytePrefix && (state->rex.byte != 0) && (!state->lastPrefixRex))
-		return false;
-
 	return true;
 }
 
@@ -439,22 +439,34 @@ static __inline bool IsModRmRmFieldReg(ModRmByte modRm)
 }
 
 
-static __inline void DecodeOperandGpr(X86Operand* const operand, uint8_t reg, uint8_t operandSize)
+static __inline void DecodeOperandGpr(X86Operand* const operand, uint8_t reg, uint8_t operandSize, RexByte rex)
 {
-	operand->operandType = g_gprOperandTypes[operandSize >> 1][reg];
-	operand->size = operandSize;
+	if ((rex.rex == 0) || (operandSize != 1))
+	{
+		// Normal path
+		const uint8_t table = (operandSize >> 1);
+		operand->operandType = g_gprOperandTypes[table][reg];
+		operand->size = operandSize;
+	}
+	else
+	{
+		// Subsitute table for single byte GPR
+		operand->operandType = g_gprRex8[reg];
+		operand->size = 1;
+	}
 }
 
 
-static __inline void DecodeModRmRmFieldReg(int8_t operandSize, X86Operand* const operand, ModRmByte modRm, RexByte rex)
+static __inline void DecodeModRmRmFieldReg(uint8_t operandSize, X86Operand* const operand,
+	ModRmByte modRm, RexByte rex)
 {
 	const uint8_t reg = ((rex.b << 3) | modRm.rm);
-	DecodeOperandGpr(operand, reg, operandSize);
+	DecodeOperandGpr(operand, reg, operandSize, rex);
 }
 
 
 static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint8_t operandSize,
-		X86Operand* const operand, ModRmByte modRm)
+	X86Operand* const operand, ModRmByte modRm)
 {
 	const size_t operandTableIndex = ((state->rex.b << 5) | ((modRm.mod << 3) | modRm.rm));
 	const ModRmRmOperand* const operandTableEntry = &g_modRmRmOperands[state->addrMode][operandTableIndex];
@@ -486,14 +498,11 @@ static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint
 	{
 		memcpy(operand, &operandTableEntry->operand, sizeof(X86Operand));
 
-		if (state->mode == X86_64BIT)
+		if ((state->mode == X86_64BIT) && (modRm.mod == 0) && (modRm.rm == 5))
 		{
 			// RIP Relative address mode
-			if ((modRm.mod == 0) && (modRm.rm == 5))
-			{
-				operand->components[0] = X86_RIP;
-				dispBytes = 4;
-			}
+			operand->components[0] = X86_RIP;
+			dispBytes = 4;
 		}
 	}
 	operand->size = operandSize;
@@ -530,7 +539,7 @@ static __inline void DecodeModRmRegField(int8_t operandSize,
 	X86Operand* const operand, ModRmByte modRm, RexByte rex)
 {
 	const uint8_t reg = ((rex.r << 3) | modRm.reg);
-	DecodeOperandGpr(operand, reg, operandSize);
+	DecodeOperandGpr(operand, reg, operandSize, rex);
 }
 
 
@@ -599,7 +608,7 @@ static __inline void DecodeOneOperandOpcodeGpr(X86DecoderState* const state, uin
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	const uint8_t reg = ((state->rex.w << 3) | (opcode & 7));
-	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize, state->rex);
 }
 
 
@@ -642,14 +651,16 @@ static bool DecodePrimaryArithmeticImm(X86DecoderState* const state, uint8_t opc
 		X86_ADD, X86_ADC, X86_AND, X86_XOR,
 		X86_OR, X86_SBB, X86_SUB, X86_CMP
 	};
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t dstOperandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t srcOperandSizes[2] = {1, 4};
 	const uint8_t operandSizeBit = (opcode & 1); // 1byte or default operand size
 	const size_t operation = ((opcode & 0x8) >> 1) | ((opcode >> 4) & 7);
-	const uint8_t operandSize = operandSizes[operandSizeBit];
+	const uint8_t dstOperandSize = dstOperandSizes[operandSizeBit];
+	const uint8_t srcOperandSize = srcOperandSizes[operandSizeBit];
 
-	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
+	if (!DecodeImmediate(state, &state->instr->operands[1], srcOperandSize))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[0], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], 0, dstOperandSize, state->rex);
 
 	state->instr->op = primaryOpCodeTableArithmetic[operation];
 	state->instr->operandCount = 2;
@@ -702,8 +713,6 @@ static __inline void EvaluateRexPrefix(X86DecoderState* const state, uint8_t opc
 		| state->instr->flags.operandSizeOverride;
 
 	state->rex.byte = opcode;
-	state->lastBytePrefix = true;
-	state->lastPrefixRex = true;
 
 	// NOTE: This should only ever be called in 64bit mode.
 	state->operandMode = modes[mode];
@@ -751,7 +760,7 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = operandSizes[state->mode];
 
 	// Operand size is ignored in 64bit mode and can only encode 64bit GPRs.
-	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize, state->rex);
 
 	state->instr->op = operations[(opcode >> 3) & 1];
 	state->instr->operandCount = 1;
@@ -774,12 +783,13 @@ static bool DecodeJmpConditional(X86DecoderState* const state, uint8_t opcode)
 	};
 	const uint8_t operandSizeBit = ((opcode >> 7) & 1);
 	const uint8_t operandSize = operandSizes[operandSizeBit][state->operandMode];
+	const uint8_t op = (opcode & 0xf);
 
 	// Grab the offset
 	if (!DecodeImmediate(state, &state->instr->operands[0], operandSize))
 		return false;
 
-	state->instr->op = ops[opcode & 0xf];
+	state->instr->op = ops[op];
 	state->instr->operandCount = 1;
 
 	return true;
@@ -950,10 +960,10 @@ static bool DecodeNopModRm(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeXchgRax(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
-	const uint8_t reg = (opcode & 0xf);
+	const uint8_t reg = ((state->rex.b << 3) | (opcode & 0x7));
 
-	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize);
-	DecodeOperandGpr(&state->instr->operands[1], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize, state->rex);
+	DecodeOperandGpr(&state->instr->operands[1], 0, operandSize, state->rex);
 
 	state->instr->op = X86_XCHG;
 	state->instr->operandCount = 2;
@@ -976,7 +986,7 @@ static bool DecodeMovOffset(X86DecoderState* const state, uint8_t opcode)
 	offset = 0;
 	if (!Fetch(state, offsetSize, (uint8_t*)&offset))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize, state->rex);
 
 	state->instr->operands[operand1].operandType = X86_MEM;
 	state->instr->operands[operand1].size = operandSize;
@@ -1754,15 +1764,19 @@ static bool DecodeInOutImm(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSizeBit = opcode & 1;
 	const size_t direction = ((opcode >> 1) & 1);
 	const size_t op = direction;
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t operandSizes[2][3] =
+	{
+		{1, 1, 1},
+		{2, 4, 4}
+	};
 	const size_t operand0 = direction;
 	const size_t operand1 = ((~direction) & 1);
-	const uint8_t operandSize = operandSizes[operandSizeBit];
+	const uint8_t operandSize = operandSizes[operandSizeBit][state->operandMode];
 
 	// Process the immediate operand
 	if (!DecodeImmediate(state, &state->instr->operands[operand1], 1))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize, state->rex);
 
 	state->instr->op = operations[op];
 	state->instr->operandCount = 2;
@@ -2148,7 +2162,7 @@ static bool DecodeTestImm(X86DecoderState* const state, uint8_t opcode)
 
 	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[0], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], 0, operandSize, state->rex);
 
 	state->instr->op = X86_TEST;
 	state->instr->operandCount = 2;
@@ -2222,12 +2236,12 @@ static bool DecodeMovImm(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t operandSizeBit = (opcode >> 3) & 1;
-	const uint8_t reg = (opcode & 7);
+	const uint8_t reg = ((state->rex.b << 3) | (opcode & 0x7));
 	const uint8_t operandSize = operandSizes[operandSizeBit];
 
 	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize);
+	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize, state->rex);
 
 	state->instr->op = X86_MOV;
 	state->instr->operandCount = 2;
@@ -2392,7 +2406,7 @@ static bool DecodeInOutDx(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operand0 = operation;
 	const uint8_t operand1  = ((~operation) & 1);
 
-	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize);
+	DecodeOperandGpr(&state->instr->operands[operand0], 0, operandSize, state->rex);
 
 	state->instr->operands[operand1].operandType = X86_DX;
 	state->instr->operands[operand1].size = 2;
@@ -2477,7 +2491,9 @@ static bool DecodeSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 	// ES, CS, SS, DS
 	const uint8_t segment = (((opcode >> 3) & 2) | ((opcode >> 3) & 1));
 
-	state->lastBytePrefix = true;
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 
 	// Only the last segment override prefix matters.
 	if (state->mode != X86_64BIT)
@@ -2507,7 +2523,10 @@ static bool DecodeSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeExtendedSegmentPrefix(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t colBit = (opcode & 1);
-	state->lastBytePrefix = true;
+
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 
 	// Only the last segment override prefix matters.
 	state->instr->flags.segments = 0;
@@ -2524,7 +2543,9 @@ static bool DecodeOperandSizePrefix(X86DecoderState* const state, uint8_t opcode
 {
 	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_16BIT};
 	(void)opcode;
-	state->lastBytePrefix = true;
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 	state->operandMode = modes[state->mode];
 	state->instr->flags.operandSizeOverride = 1;
 	state->secondaryTable = SECONDARY_TABLE_66;
@@ -2536,7 +2557,9 @@ static bool DecodeAddrSizePrefix(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86DecoderMode modes[3] = {X86_32BIT, X86_16BIT, X86_32BIT};
 	(void)opcode;
-	state->lastBytePrefix = true;
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 	state->addrMode = modes[state->mode];
 	state->instr->flags.addrSizeOverride = 1;
 	return ProcessPrimaryOpcode(state);
@@ -2546,7 +2569,9 @@ static bool DecodeAddrSizePrefix(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeLockPrefix(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
-	state->lastBytePrefix = true;
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 	state->instr->flags.lock = 1;
 	return ProcessPrimaryOpcode(state);
 }
@@ -2557,7 +2582,9 @@ static bool DecodeRepPrefix(X86DecoderState* const state, uint8_t opcode)
 	static const SecondaryOpCodeTable decoderTables[] = {SECONDARY_TABLE_F2, SECONDARY_TABLE_F3};
 	const uint8_t colBit = (opcode & 1);
 
-	state->lastBytePrefix = true;
+	// Normal prefixes can't follow rex prefix
+	if (state->rex.byte != 0)
+		return false;
 
 	// Clear existing rep flags, only the last one counts
 	if (colBit)
@@ -3749,7 +3776,7 @@ static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 
 	(void)opcode;
 
-	DecodeOperandGpr(&state->instr->operands[0], reg, 4);
+	DecodeOperandGpr(&state->instr->operands[0], reg, 4, state->rex);
 
 	state->instr->op = X86_BSWAP;
 	state->instr->operandCount = 1;
