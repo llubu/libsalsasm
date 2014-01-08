@@ -651,8 +651,9 @@ static bool DecodePrimaryArithmeticImm(X86DecoderState* const state, uint8_t opc
 		X86_ADD, X86_ADC, X86_AND, X86_XOR,
 		X86_OR, X86_SBB, X86_SUB, X86_CMP
 	};
+	static const uint8_t operandSizes[3] = {2, 4, 4};
 	const uint8_t dstOperandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
-	const uint8_t srcOperandSizes[2] = {1, 4};
+	const uint8_t srcOperandSizes[2] = {1, operandSizes[state->operandMode]};
 	const uint8_t operandSizeBit = (opcode & 1); // 1byte or default operand size
 	const size_t operation = ((opcode & 0x8) >> 1) | ((opcode >> 4) & 7);
 	const uint8_t dstOperandSize = dstOperandSizes[operandSizeBit];
