@@ -74,7 +74,7 @@ static const ModRmRmOperand g_modRmRmOperands16[24] =
 	MODRM_RM_OPERANDS(MEM, BX, NONE, 2, 0),
 };
 
-static const ModRmRmOperand g_modRmRmOperands32[24] =
+static const ModRmRmOperand g_modRmRmOperands32[64] =
 {
 	// Mod 00
 	MODRM_RM_OPERANDS(MEM, EAX, NONE, 0, 0),
@@ -105,6 +105,56 @@ static const ModRmRmOperand g_modRmRmOperands32[24] =
 	MODRM_RM_OPERANDS(MEM, EBP, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, ESI, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, EDI, NONE, 4, 0),
+
+	// Mod 11 (Pad)
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+
+	// REX.B, Mod 00
+	MODRM_RM_OPERANDS(MEM, R8D, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R9D, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R10D, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R11D, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 1),
+	MODRM_RM_OPERANDS(MEM, EIP, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R14D, NONE, 0, 0),
+	MODRM_RM_OPERANDS(MEM, R15D, NONE, 0, 0),
+
+	// REX.B, Mod 01
+	MODRM_RM_OPERANDS(MEM, R8D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R9D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R10D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R11D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 1, 1),
+	MODRM_RM_OPERANDS(MEM, R13D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R14D, NONE, 1, 0),
+	MODRM_RM_OPERANDS(MEM, R15D, NONE, 1, 0),
+
+	// REX.B, Mod 10
+	MODRM_RM_OPERANDS(MEM, R8, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R9, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R10, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R11, NONE, 4, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 4, 1),
+	MODRM_RM_OPERANDS(MEM, R13, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R14, NONE, 4, 0),
+	MODRM_RM_OPERANDS(MEM, R15, NONE, 4, 0),
+
+	// REX.B, Mod 11 (Pad)
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0)
 };
 
 static const ModRmRmOperand g_modRmRmOperands64[64] =
@@ -177,7 +227,17 @@ static const ModRmRmOperand g_modRmRmOperands64[64] =
 	MODRM_RM_OPERANDS(NONE, NONE, NONE, 4, 1),
 	MODRM_RM_OPERANDS(MEM, R13, NONE, 4, 0),
 	MODRM_RM_OPERANDS(MEM, R14, NONE, 4, 0),
-	MODRM_RM_OPERANDS(MEM, R15, NONE, 4, 0)
+	MODRM_RM_OPERANDS(MEM, R15, NONE, 4, 0),
+
+	// REX.B, Mod 11 (Pad)
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0),
+	MODRM_RM_OPERANDS(NONE, NONE, NONE, 0, 0)
 };
 
 #define MODRM_SIB_OPERAND_ROW32(scale, index, base5) \
@@ -753,14 +813,12 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 	static const X86Operation operations[2] = {X86_PUSH, X86_POP};
 	const uint8_t operandSizes[] =
 	{
-		g_decoderModeSizeXref[state->operandMode],
-		g_decoderModeSizeXref[state->operandMode],
-		8
+		g_decoderModeSizeXref[state->mode],
+		g_decoderModeSizeXref[state->operandMode]
 	};
-	const uint8_t reg = ((state->rex.w << 3) | (opcode & 7));
-	const uint8_t operandSize = operandSizes[state->mode];
+	const uint8_t reg = ((state->rex.b << 3) | (opcode & 7));
+	const uint8_t operandSize = operandSizes[state->instr->flags.operandSizeOverride];
 
-	// Operand size is ignored in 64bit mode and can only encode 64bit GPRs.
 	DecodeOperandGpr(&state->instr->operands[0], reg, operandSize, state->rex);
 
 	state->instr->op = operations[(opcode >> 3) & 1];
@@ -805,7 +863,7 @@ static bool DecodePushPopAll(X86DecoderState* const state, uint8_t opcode)
 		{X86_PUSHAD, X86_POPAD}
 	};
 
-	if (state->addrMode == X86_64BIT)
+	if (state->mode == X86_64BIT)
 		return false;
 
 	state->instr->op = ops[state->operandMode][opcode & 1];
@@ -817,13 +875,12 @@ static bool DecodePushPopAll(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation ops[3] = {X86_BOUND, X86_BOUND, X86_INVALID};
 	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	ModRmByte modRm;
 
 	(void)opcode;
 
-	if (ops[state->addrMode] == X86_INVALID)
+	if (state->mode == X86_64BIT)
 		return false;
 
 	if (!Fetch(state, 1, &modRm.byte))
@@ -834,7 +891,7 @@ static bool DecodeBound(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	DecodeModRmRegField(operandSize, &state->instr->operands[0], modRm, state->rex);
 
-	state->instr->op = ops[state->addrMode];
+	state->instr->op = X86_BOUND;
 	state->instr->operandCount = 2;
 
 	return true;
@@ -1205,6 +1262,8 @@ static bool DecodeAsciiAdjust(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeSalc(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
+	if (state->mode == X86_64BIT)
+		return false;
 	state->instr->op = X86_SALC;
 	return true;
 }
@@ -2027,7 +2086,12 @@ static bool DecodeLea(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup1a(X86DecoderState* const state, uint8_t opcode)
 {
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
+	const uint8_t operandSizes[2] =
+	{
+		g_decoderModeSizeXref[state->mode],
+		g_decoderModeSizeXref[state->operandMode]
+	};
+	const uint8_t operandSize = operandSizes[state->instr->flags.operandSizeOverride];
 	ModRmByte modRm;
 
 	(void)opcode;
@@ -2157,13 +2221,16 @@ static bool DecodeAHFlags(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeTestImm(X86DecoderState* const state, uint8_t opcode)
 {
+	static const uint8_t operandSizes[3] = {2, 4, 4};
 	const size_t sizeBit = opcode & 1;
-	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
-	const uint8_t operandSize = operandSizes[sizeBit];
+	const uint8_t srcOperandSizes[2] = {1, operandSizes[state->operandMode]};
+	const uint8_t dstOperandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
+	const uint8_t srcOperandSize = srcOperandSizes[sizeBit];
+	const uint8_t dstOperandSize = dstOperandSizes[sizeBit];
 
-	if (!DecodeImmediate(state, &state->instr->operands[1], operandSize))
+	if (!DecodeImmediate(state, &state->instr->operands[1], srcOperandSize))
 		return false;
-	DecodeOperandGpr(&state->instr->operands[0], 0, operandSize, state->rex);
+	DecodeOperandGpr(&state->instr->operands[0], 0, dstOperandSize, state->rex);
 
 	state->instr->op = X86_TEST;
 	state->instr->operandCount = 2;
