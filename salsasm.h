@@ -333,7 +333,7 @@ extern "C"
 	LIBSALSASMAPI bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch,
 		void* ctxt, X86Instruction* instr);
 
-	LIBSALSASMAPI void GetInstructionString(char* const dest, const size_t maxLen, const char* format,
+	LIBSALSASMAPI size_t GetInstructionString(char* const dest, const size_t maxLen, const char* format,
 		const X86Instruction* const instr);
 
 #ifdef __cplusplus

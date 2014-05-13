@@ -297,13 +297,13 @@ static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64
 	switch (size)
 	{
 	case 1:
-		return snprintf(dest, maxLen, "%.02x", (uint8_t)immediate);
+		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
 	case 2:
-		return snprintf(dest, maxLen, "%.04x", (uint16_t)immediate);
+		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
 	case 4:
-		return snprintf(dest, maxLen, "%.08x", (uint32_t)immediate);
+		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
 	case 8:
-		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)immediate);
+		return snprintf(dest, maxLen, "%llx", (uint64_t)immediate);
 	default:
 		return 0;
 	}
@@ -456,56 +456,24 @@ static size_t PrintInstruction(char* const dest, const size_t maxLen, const X86I
 }
 
 
-static __inline uint8_t FindMsb(uint64_t i)
+static __inline uint8_t ComputeAddressSize(uint64_t i)
 {
-	uint8_t bit = 64;
+	if ((i & 0xffffffff00000000) != 0)
+		return 64;
 
-	if (i == 0)
-		return 0;
+	if ((i & 0xffff0000) != 0)
+		return 32;
 
-	if ((i & 0xffffffff00000000) == 0)
-	{
-		i <<= 32;
-		bit -= 32;
-	}
-
-	if ((i & 0xffff0000) == 0)
-	{
-		i <<= 16;
-		bit -= 16;
-	}
-
-	if ((i & 0xff000000) == 0)
-	{
-		i <<= 8;
-		bit -= 8;
-	}
-
-	if ((i & 0xf0000000) == 0)
-	{
-		i <<= 4;
-		bit -= 4;
-	}
-
-	if ((i & 0xc0000000) == 0)
-	{
-		i <<= 2;
-		bit -= 2;
-	}
-
-	if ((i & 0x80000000) == 0)
-		bit -= 1;
-
-	return bit;
+	return 16;
 }
 
 
 static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t rip)
 {
-	const uint8_t bit = FindMsb(rip);
-	if (bit >= 32)
+	const uint8_t bit = ComputeAddressSize(rip);
+	if (bit > 32)
 		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)rip);
-	else if (bit >= 16)
+	else if (bit > 16)
 		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)rip);
 	else
 		return snprintf(dest, maxLen, "%.04x", (uint16_t)rip);
@@ -542,12 +510,15 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 }
 
 
-void GetInstructionString(char* const dest, const size_t maxLen, const char* format, const X86Instruction* const instr)
+size_t GetInstructionString(char* const dest, const size_t maxLen, const char* format, const X86Instruction* const instr)
 {
 	const char* src;
 	char* dstPtr = dest;
 	bool delimitter;
-	size_t remaining = maxLen;
+	size_t remaining = maxLen - 1;
+
+	if (maxLen == 0)
+		return 0;
 
 	delimitter = false;
 	for (src = format; *src; src++)
@@ -597,7 +568,7 @@ void GetInstructionString(char* const dest, const size_t maxLen, const char* for
 				len = 0;
 				break;
 			default:
-				return;
+				break;
 			}
 
 			dstPtr += len;
@@ -605,6 +576,9 @@ void GetInstructionString(char* const dest, const size_t maxLen, const char* for
 			delimitter = false;
 		}
 	}
+
+	*dstPtr++ = 0;
+	return dstPtr - dest;
 }
 
 
