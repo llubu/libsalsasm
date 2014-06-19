@@ -4442,8 +4442,13 @@ static bool DecodeCvttsd2si(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+
+	// Lie about the size to get the correct sse register
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
+	// Now fix up the source size
+	state->instr->operands[1].size = 8;
+
 	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm, state->rex);
 
 	state->instr->flags.repe = 0;
