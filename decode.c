@@ -4456,9 +4456,21 @@ static bool DecodeCvttsd2si(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeCvtps2pi(X86DecoderState* const state, uint8_t opcode)
 {
+	ModRmByte modRm;
+
 	(void)opcode;
-	if (!DecodeCvtPsOperands(state))
+
+	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+
+	// Lie about the size to get the right sse register.
+	if (!DecodeModRmRmFieldSimd(state, 16, &state->instr->operands[1], modRm))
+		return false;
+	// Now fix up the size so it's right.
+	state->instr->operands[1].size = 8;
+
+	DecodeModRmRegFieldSimd(8, &state->instr->operands[0], modRm, state->rex);
+
 	state->instr->op = X86_CVTPS2PI;
 	state->instr->operandCount = 2;
 	return true;
