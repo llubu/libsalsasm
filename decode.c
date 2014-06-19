@@ -4568,8 +4568,14 @@ static bool DecodeUcomisd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the size to get the correct sse registers
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the source and destination sizes
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
 	state->instr->flags.operandSizeOverride = 0;
 	state->instr->op = X86_UCOMISD;
 	state->instr->operandCount = 2;
@@ -4581,8 +4587,14 @@ static bool DecodeComisd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the size to get the correct sse registers
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the source and destination sizes
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
 	state->instr->flags.operandSizeOverride = 0;
 	state->instr->op = X86_COMISD;
 	state->instr->operandCount = 2;
