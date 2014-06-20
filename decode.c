@@ -4407,8 +4407,12 @@ static bool DecodeCvttss2si(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+	// Lie about the size to get the correct sse register.
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
+	// Now fix up the size of the source
+	state->instr->operands[1].size = 4;
+
 	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm, state->rex);
 
 	state->instr->flags.repne = 0;
@@ -4443,7 +4447,7 @@ static bool DecodeCvttsd2si(X86DecoderState* const state, uint8_t opcode)
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
 
-	// Lie about the size to get the correct sse register
+	// Lie about the size to get the correct sse register.
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
 	// Now fix up the source size
@@ -4493,8 +4497,12 @@ static bool DecodeCvtss2si(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+	// Lie abou the size to get the correct sse register.
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
+	// Now fixup the source size
+	state->instr->operands[1].size = 4;
+
 	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm, state->rex);
 
 	state->instr->flags.repne = 0;
@@ -4528,8 +4536,12 @@ static bool DecodeCvtsd2si(X86DecoderState* const state, uint8_t opcode)
 
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+	// Lie about the size to get the correct sse register.
 	if (!DecodeModRmRmFieldSimd(state, srcSize, &state->instr->operands[1], modRm))
 		return false;
+	// Now fixup the source size
+	state->instr->operands[1].size = 8;
+
 	DecodeModRmRegField(dstSize, &state->instr->operands[0], modRm, state->rex);
 
 	state->instr->flags.repe = 0;
@@ -4588,7 +4600,7 @@ static bool DecodeComisd(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
 
-	// Lie about the size to get the correct sse registers
+	// Lie about the size to get the correct sse registers.
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
 	// Now fixup the source and destination sizes
