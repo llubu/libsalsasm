@@ -5085,8 +5085,14 @@ static bool DecodeMinss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the operand sizes to get the correct sse registers.
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the operand sizes
+	state->instr->operands[0].size = 4;
+	state->instr->operands[1].size = 4;
+
 	state->instr->flags.repne = 0;
 	state->instr->op = X86_MINSS;
 	state->instr->operandCount = 2;
@@ -5111,8 +5117,14 @@ static bool DecodeMinsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the size to get the right sse registers.
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the operand sizes
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
 	state->instr->flags.repe = 0;
 	state->instr->op = X86_MINSD;
 	state->instr->operandCount = 2;
@@ -5136,8 +5148,14 @@ static bool DecodeDivss(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the operand size to get the right sse registers.
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the operand sizes
+	state->instr->operands[0].size = 4;
+	state->instr->operands[1].size = 4;
+
 	state->instr->flags.repne = 0;
 	state->instr->op = X86_DIVSS;
 	state->instr->operandCount = 2;
@@ -5162,8 +5180,14 @@ static bool DecodeDivsd(X86DecoderState* const state, uint8_t opcode)
 {
 	const uint8_t operandSize = g_sseOperandSizes[0]; // FIXME: VEX
 	(void)opcode;
+
+	// Lie about the operand sizes to get the right sse registers
 	if (!DecodeModRmSimdRev(state, operandSize, state->instr->operands))
 		return false;
+	// Now fixup the operand sizes
+	state->instr->operands[0].size = 8;
+	state->instr->operands[1].size = 8;
+
 	state->instr->flags.repe = 0;
 	state->instr->op = X86_DIVSD;
 	state->instr->operandCount = 2;
