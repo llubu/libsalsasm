@@ -4638,6 +4638,9 @@ static bool Decode38Table(X86DecoderState* const state, uint8_t opcode)
 	if (!Fetch(state, 1, &opcode))
 		return false;
 
+	if ((state->instr->flags.repe || state->instr->flags.repne) && (opcode < 0xf0))
+		return false;
+
 	return g_0f38Decoders[opcode](state, opcode);
 }
 
@@ -6707,7 +6710,11 @@ static __inline bool DecodePmovxOperands(X86DecoderState* const state, uint8_t s
 	}
 	else
 	{
+		// Lie about the size to get the right register.
 		DecodeModRmRmFieldSimdReg(operandSize, &state->instr->operands[1], modRm, state->rex);
+
+		// Now fixup the size
+		state->instr->operands[1].size = srcSize;
 	}
 
 	DecodeModRmRegFieldSimd(operandSize, &state->instr->operands[0], modRm, state->rex);
@@ -7191,10 +7198,13 @@ static bool DecodeMovbeCrc(X86DecoderState* const state, uint8_t opcode)
 {
 	ModRmByte modRm;
 
+	if (state->secondaryTable == SECONDARY_TABLE_F3)
+		return false;
+
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
 
-	if (state->secondaryTable == SECONDARY_TABLE_NORMAL)
+	if (state->secondaryTable != SECONDARY_TABLE_F2)
 	{
 		// MOVBE
 		const uint8_t direction = (opcode & 1);
