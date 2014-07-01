@@ -1059,11 +1059,12 @@ static bool DecodeMovOffset(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeMovCmpString(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation operations[4][2] =
+	static const X86Operation operations[5][2] =
 	{
 		{X86_MOVSB, X86_CMPSB},
 		{X86_MOVSW, X86_CMPSW},
 		{X86_MOVSD, X86_CMPSD},
+		{X86_INVALID, X86_INVALID},
 		{X86_MOVSQ, X86_CMPSQ}
 	};
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
@@ -2241,11 +2242,11 @@ static bool DecodeTestImm(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation operations[3][4] =
+	static const X86Operation operations[3][5] =
 	{
-		{X86_STOSB, X86_STOSW, X86_STOSD, X86_STOSQ},
-		{X86_LODSB, X86_LODSW, X86_LODSD, X86_LODSQ},
-		{X86_SCASB, X86_SCASW, X86_SCASD, X86_SCASQ}
+		{X86_STOSB, X86_STOSW, X86_STOSD, X86_INVALID, X86_STOSQ},
+		{X86_LODSB, X86_LODSW, X86_LODSD, X86_INVALID, X86_LODSQ},
+		{X86_SCASB, X86_SCASW, X86_SCASD, X86_INVALID, X86_SCASQ}
 	};
 	static const X86OperandType sources[3][4] =
 	{
@@ -2279,22 +2280,22 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 	};
 	const uint8_t operandSizes[2] = {1, g_decoderModeSizeXref[state->operandMode]};
 	const uint8_t sizeBit = (opcode & 1);
-	const uint8_t operationBits = ((opcode & 0xf) - 0xa) >> 1;
+	const uint8_t operationBits = (((opcode - 0xa) >> 1) & 3); 
 	const uint8_t operandSize = operandSizes[sizeBit];
-	const uint8_t operandSel = operandSize >> 1;
+	const uint8_t operandSel = (operandSize >> 1);
 
 	state->instr->op = operations[operationBits][operandSel];
 	state->instr->operandCount = 2;
 
-	state->instr->operands[0].operandType = dests[operandSel][operationBits];
+	state->instr->operands[0].operandType = dests[operationBits][operandSel];
 	state->instr->operands[0].segment = segments[operationBits][0];
 	state->instr->operands[0].size = operandSize;
-	state->instr->operands[0].components[0] = destComponents[state->addrMode][operationBits];
+	state->instr->operands[0].components[0] = destComponents[operationBits][state->addrMode];
 
-	state->instr->operands[1].operandType = sources[operandSel][operationBits];
+	state->instr->operands[1].operandType = sources[operationBits][operandSel];
 	state->instr->operands[1].segment = segments[operationBits][1];
 	state->instr->operands[1].size = operandSize;
-	state->instr->operands[1].components[0] = sourceComponents[state->addrMode][operationBits];
+	state->instr->operands[1].components[0] = sourceComponents[operationBits][state->addrMode];
 
 	return true;
 }
