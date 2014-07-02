@@ -1072,24 +1072,24 @@ static bool DecodeMovCmpString(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t opSize = operandSizes[opcode & 1];
 	static const X86OperandType operands[3][2] =
 	{
-		{X86_SI, X86_DI},
-		{X86_ESI, X86_EDI},
-		{X86_RSI, X86_RDI}
+		{X86_DI, X86_SI},
+		{X86_EDI, X86_ESI},
+		{X86_RDI, X86_RSI}
 	};
 	static const X86OperandType segments[2] = {X86_DS, X86_ES};
 	const X86Operation operation = operations[opSize >> 1][op];
-	const uint8_t operand0 = g_operandOrder[op][0];
-	const uint8_t operand1 = g_operandOrder[op][1];
 
 	state->instr->op = operation;
 	state->instr->operandCount = 2;
-	state->instr->operands[operand0].size = opSize;
-	state->instr->operands[operand1].size = opSize;
+	state->instr->operands[0].size = opSize;
+	state->instr->operands[1].size = opSize;
 
-	state->instr->operands[operand0].segment = segments[0];
-	state->instr->operands[operand0].operandType = operands[opSize][0];
-	state->instr->operands[operand1].segment = segments[1];
-	state->instr->operands[operand1].operandType = operands[opSize][1];
+	state->instr->operands[0].segment = segments[0];
+	state->instr->operands[0].operandType = X86_MEM;
+	state->instr->operands[0].components[0] = operands[state->addrMode][0];
+	state->instr->operands[1].segment = segments[1];
+	state->instr->operands[1].operandType = X86_MEM;
+	state->instr->operands[1].components[0] = operands[state->addrMode][1];
 
 	return true;
 }
