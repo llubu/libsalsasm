@@ -297,13 +297,13 @@ static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64
 	switch (size)
 	{
 	case 1:
-		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
+		return snprintf(dest, maxLen, "%hhx", (uint8_t)immediate);
 	case 2:
-		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
+		return snprintf(dest, maxLen, "%hx", (uint16_t)immediate);
 	case 4:
 		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
 	case 8:
-		return snprintf(dest, maxLen, "%llx", (uint64_t)immediate);
+		return snprintf(dest, maxLen, "%llx", (long long unsigned int)immediate);
 	default:
 		return 0;
 	}
@@ -568,6 +568,7 @@ size_t GetInstructionString(char* const dest, const size_t maxLen, const char* f
 				len = 0;
 				break;
 			default:
+				len = 0;
 				break;
 			}
 

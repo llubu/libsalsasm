@@ -906,10 +906,10 @@ static bool DecodeAarplMovSxd(X86DecoderState* const state, uint8_t opcode)
 
 	(void)opcode;
 
-	if (!DecodeModRmDirection(state, opSize[state->addrMode], state->instr->operands, order[state->addrMode]))
+	if (!DecodeModRmDirection(state, opSize[state->mode], state->instr->operands, order[state->addrMode]))
 		return false;
 
-	state->instr->op = ops[state->addrMode];
+	state->instr->op = ops[state->mode];
 	state->instr->operandCount = 2;
 
 	return true;
@@ -1804,15 +1804,13 @@ static bool DecodeJcxz(X86DecoderState* const state, uint8_t opcode)
 {
 	// 64bit mode is always 64bit and ignores operand size overrides
 	static const X86Operation op[3] = {X86_JCXZ, X86_JECXZ, X86_JRCXZ};
-	const uint8_t modes[3] = {state->operandMode, state->operandMode, X86_64BIT};
-	const uint8_t mode = modes[state->mode];
 	(void)opcode;
 
 	// Fetch the immediate argument (jump target)
 	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
 		return false;
 
-	state->instr->op = op[mode];
+	state->instr->op = op[state->addrMode];
 	state->instr->operandCount = 1;
 
 	return true;
