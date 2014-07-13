@@ -292,6 +292,30 @@ const char* const g_operandTypeNames[] =
 };
 
 
+static __inline uint8_t ComputeAddressSize(uint64_t i)
+{
+	if ((i & 0xffffffff00000000) != 0)
+		return 64;
+
+	if ((i & 0xffff0000) != 0)
+		return 32;
+
+	return 16;
+}
+
+
+static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t addr)
+{
+	const uint8_t bit = ComputeAddressSize(addr);
+	if (bit > 32)
+		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)addr);
+	else if (bit > 16)
+		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)addr);
+	else
+		return snprintf(dest, maxLen, "%.04x", (uint16_t)addr);
+}
+
+
 static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64_t immediate, const uint8_t size)
 {
 	switch (size)
@@ -364,8 +388,7 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 
 	if (operand->immediate || ((operand->components[0] == X86_NONE) && (operand->components[1] == X86_NONE)))
 	{
-		// FIXME: Addr mode is what governs the imm size, not operand size
-		len = PrintImmediate(dstPtr, remaining, operand->immediate, operand->size);
+		len = PrintAddress(dstPtr, remaining, operand->immediate);
 		dstPtr += len;
 		remaining -= len;
 	}
@@ -453,30 +476,6 @@ static size_t PrintInstruction(char* const dest, const size_t maxLen, const X86I
 	remaining -= len;
 
 	return (maxLen - remaining);
-}
-
-
-static __inline uint8_t ComputeAddressSize(uint64_t i)
-{
-	if ((i & 0xffffffff00000000) != 0)
-		return 64;
-
-	if ((i & 0xffff0000) != 0)
-		return 32;
-
-	return 16;
-}
-
-
-static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t rip)
-{
-	const uint8_t bit = ComputeAddressSize(rip);
-	if (bit > 32)
-		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)rip);
-	else if (bit > 16)
-		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)rip);
-	else
-		return snprintf(dest, maxLen, "%.04x", (uint16_t)rip);
 }
 
 
