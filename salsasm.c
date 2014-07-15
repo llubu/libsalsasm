@@ -300,7 +300,10 @@ static __inline uint8_t ComputeAddressSize(uint64_t i)
 	if ((i & 0xffff0000) != 0)
 		return 32;
 
-	return 16;
+	if ((i & 0xff00) != 0)
+		return 16;
+
+	return 8;
 }
 
 
@@ -311,8 +314,10 @@ static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t
 		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)addr);
 	else if (bit > 16)
 		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)addr);
-	else
+	else if (bit > 8)
 		return snprintf(dest, maxLen, "%.04x", (uint16_t)addr);
+	else
+		return snprintf(dest, maxLen, "%.02x", (uint8_t)addr);
 }
 
 
