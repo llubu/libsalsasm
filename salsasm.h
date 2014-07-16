@@ -26,15 +26,20 @@
 
 #ifdef _MSC_VER
 	#ifndef __cplusplus
-		typedef unsigned char bool;
-		#define true  1
-		#define false 0
+		#if _MSC_VER < 1800
+			typedef unsigned char bool;
+			#define true  1
+			#define false 0
+		#else
+			// VS 2013 has stdbool.
+			#include <stdbool.h>
+		#endif
 	#endif
-#else
+#else /* Linux */
 	#ifndef __cplusplus
 		#include <stdbool.h>
 	#endif
-#endif
+#endif /* _MSC_VER */
 
 
 typedef enum X86Operation
