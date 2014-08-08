@@ -589,8 +589,9 @@ size_t GetInstructionString(char* const dest, const size_t maxLen, const char* f
 
 bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	X86DecoderState state = {0};
+	X86DecoderState state;
 
+	memset(&state, 0, sizeof(X86DecoderState));
 	state.fetch = fetch;
 	state.ctxt = ctxt;
 	state.instr = instr;
@@ -610,8 +611,9 @@ bool Disassemble16(uint16_t ip, InstructionFetchCallback fetch, void* ctxt, X86I
 
 bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	X86DecoderState state = {0};
+	X86DecoderState state;
 
+	memset(&state, 0, sizeof(X86DecoderState));
 	state.fetch = fetch;
 	state.ctxt = ctxt;
 	state.instr = instr;
@@ -631,8 +633,9 @@ bool Disassemble32(uint32_t eip, InstructionFetchCallback fetch, void* ctxt, X86
 
 bool Disassemble64(uint64_t rip, InstructionFetchCallback fetch, void* ctxt, X86Instruction* instr)
 {
-	X86DecoderState state = {0};
+	X86DecoderState state;
 
+	memset(&state, 0, sizeof(X86DecoderState));
 	state.fetch = fetch;
 	state.ctxt = ctxt;
 	state.instr = instr;

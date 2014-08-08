@@ -376,7 +376,7 @@ static const ModRmRmOperand* const g_modRmRmOperands[4] =
 
 static const uint8_t g_operandOrder[2][2] = {{0, 1}, {1, 0}};
 static const uint8_t g_decoderModeSizeXref[3] = {2, 4, 8};
-static const uint8_t g_decoderModeSimdSizeXref[4] = {8, 16, 32, 64};
+// static const uint8_t g_decoderModeSimdSizeXref[4] = {8, 16, 32, 64};
 static const uint8_t g_sseOperandSizes[3] = {16, 32, 64};
 static const uint8_t g_simdOperandSizes[4] = {8, 16, 32, 64};
 
@@ -1594,7 +1594,9 @@ static bool DecodeFPFreeStore(X86DecoderState* const state, uint8_t opcode)
 			8, 8, 8, 8,
 			0, 0, 0, 2 // FRSTOR and FNSAVE sizes depend on CPU state
 		};
-		X86Operand operand = {0};
+		X86Operand operand;
+
+		memset(&operand, 0, sizeof(X86Operand));
 
 		// Memory!
 		if (!DecodeModRmRmFieldMemory(state, 4, &operand, modRm))
