@@ -2136,7 +2136,6 @@ static bool DecodeConvertSize(X86DecoderState* const state, uint8_t opcode)
 
 static __inline bool DecodeFarOperand(X86DecoderState* const state)
 {
-	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	union
 	{
 		uint8_t imm[6];
@@ -2146,9 +2145,11 @@ static __inline bool DecodeFarOperand(X86DecoderState* const state)
 			uint32_t offset;
 		};
 	} args;
+	const uint8_t operandSize = g_decoderModeSizeXref[state->operandMode];
 	const size_t operandBytes = operandSize + 2;
 
 	// Grab the segment and offset
+	memset(&args, 0, sizeof(args));
 	if (!Fetch(state, operandBytes, args.imm))
 		return false;
 	InitImmediateUnsigned(&state->instr->operands[0], args.segment, 2);
