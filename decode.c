@@ -7247,6 +7247,29 @@ static bool DecodeMovbeCrc(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static bool DecodeTlbInvalidate(X86DecoderState* const state, uint8_t opcode)
+{
+	ModRmByte modRm;
+	const uint8_t destSize = g_decoderModeSizeXref[state->operandMode];
+	const size_t opSel = (opcode & 3);
+	static const X86Operation ops[3] = {X86_INVEPT, X86_INVVPID, X86_INVPCID};
+
+	if (state->secondaryTable != SECONDARY_TABLE_66)
+		return false;
+	if (!Fetch(state, 1, &modRm.byte))
+		return false;
+	if (IsModRmRmFieldReg(modRm))
+		return false;
+	if (!DecodeModRmRmFieldMemory(state, 8, &state->instr->operands[1], modRm))
+		return false;
+	DecodeModRmRegField(destSize, &state->instr->operands[0], modRm, state->rex);
+
+	state->instr->op = ops[opSel];
+
+	return true;
+}
+
+
 static const InstructionDecoder g_0f38Decoders[256] =
 {
 	// Row 0
@@ -7298,7 +7321,7 @@ static const InstructionDecoder g_0f38Decoders[256] =
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 
 	// Row 8
-	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
+	DecodeTlbInvalidate, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
 	DecodeInvalid, DecodeInvalid, DecodeInvalid, DecodeInvalid,
