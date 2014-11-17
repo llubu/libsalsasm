@@ -39,7 +39,7 @@ static const char* const g_x86Mnemonics[] =
 	"amx", "and", "andnpd", "andnps", "andpd", "andps", "arpl",
 	"blendpd", "blendps", "blendvpd", "blendvps", "bound", "bsf",
 	"bsr", "bswap", "bt", "btc", "btr", "bts", "calln", "callf",
-	"cbw", "cwde", "cdqe", "clc", "cld", "clflush", "clgi", "cli",
+	"cbw", "cwde", "cdqe", "clac", "clc", "cld", "clflush", "clgi", "cli",
 	"clts", "cmc", "cmovb", "cmovnae", "cmovc", "cmovbe", "cmovna",
 	"cmovl", "cmovnge", "cmovle", "cmovng", "cmovnb", "cmovae",
 	"cmovnc", "cmovnbe", "cmova", "cmovnl", "cmovge", "cmovnle",
@@ -121,7 +121,7 @@ static const char* const g_x86Mnemonics[] =
 	"setnp", "setpo", "setns", "setnz", "setne", "seto", "setp",
 	"setpe", "sets", "setz", "sete", "sfence", "sgdt", "skinit", "sldt", "shld", "shr",
 	"shrd", "shufpd", "shufps", "sidt", "smsw", "sqrtpd", "sqrtps",
-	"sqrtsd", "sqrtss", "stc", "std", "stgi", "sti", "stmxcsr", "stos",
+	"sqrtsd", "sqrtss", "stac", "stc", "std", "stgi", "sti", "stmxcsr", "stos",
 	"stosb", "stosw", "stosd", "stosq", "str", "sub", "subpd",
 	"subps", "subsd", "subss", "swapgs", "syscall", "sysenter", "sysexit",
 	"sysret", "test", "tzcnt", "ucomisd", "ucomiss", "ud", "ud1", "ud2", "unpckhpd",
@@ -172,12 +172,11 @@ static const char* const g_x86Mnemonics[] =
 	"vrcpps", "vrcpss", "vrsqrtps", "vrsqrtss", "vsqrtps", "vsqrtss",
 	"vstmxcsr", "vsubps", "vsubss", "vucomiss", "vxorps",
 	"vbroadcast", "vextractf128", "vinsertf128", "vpermilpd", "vpermilps",
-	"vperm2f128", "vtestpd", "vtestps", "verr", "verw", "vmcall",
-	"vmclear", "vmlaunch", "vmptrld", "vmptrst", "vmread", "vmfunc",
-	"vmresume", "vmwrite", "vmxoff", "vmxon",
-	"vmload", "vmmcall", "vmrun", "vmsave",
-	"wbinvd", "wrmsr", "xabort", "xadd", "xbegin", "xchg", "xgetbv", "xlat",
-	"xlatb", "xor", "xorpd", "xorps", "xrstor", "xsave", "xsaveopt", "xsetbv"
+	"vperm2f128", "vtestpd", "vtestps", "verr", "verw", "vmcall", "vmmcall",
+	"vmrun", "vmclear", "vmlaunch", "vmptrld", "vmptrst", "vmread", "vmfunc",
+	"vmresume", "vmwrite", "vmxoff", "vmxon", "vmload", "vmsave",
+	"wbinvd", "wrmsr", "xabort", "xadd", "xbegin", "xchg", "xend", "xgetbv", "xlat",
+	"xlatb", "xor", "xorpd", "xorps", "xrstor", "xsave", "xsaveopt", "xsetbv", "xtest"
 };
 
 // Must be maintained in same order as X86OperandType
