@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Wshadow -Wstrict-overflow -Wsign-compare -Warray-bounds -Wtrigraphs -Wpointer-arith -Wunreachable-code -Wunused-but-set-variable -Wvolatile-register-var -Wwrite-strings -Wstrict-aliasing -DLIBSALSASM_EXPORTS -fPIC -O3 -Os -fomit-frame-pointer -fstrict-aliasing -fstrict-overflow
+CFLAGS = -g -Wall -Wextra -Wshadow -Wstrict-overflow -Wsign-compare -Warray-bounds -Wtrigraphs -Wpointer-arith -Wunreachable-code -Wunused-but-set-variable -Wvolatile-register-var -Wwrite-strings -Wstrict-aliasing -DLIBSALSASM_EXPORTS -fPIC -O0 -fomit-frame-pointer -fstrict-aliasing -fstrict-overflow
 LDFLAGS = -shared
 OBJECTS = salsasm.o decode.o
 

@@ -850,6 +850,7 @@ static __inline bool DecodeRelativeJmpTarget(X86DecoderState* const state, uint8
 	}
 
 	state->instr->operands[0].immediate &= ((1ull << (g_decoderModeSizeXref[state->mode] << 3)) - 1);
+	state->instr->operands[0].size = g_decoderModeSizeXref[state->mode];
 
 	return true;
 }
