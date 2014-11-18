@@ -827,6 +827,34 @@ static bool DecodePushPopGpr(X86DecoderState* const state, uint8_t opcode)
 }
 
 
+static __inline bool DecodeRelativeJmpTarget(X86DecoderState* const state, uint8_t operandSize)
+{
+	uint64_t tempRip;
+
+	// Grab the offset
+	if (!DecodeImmediate(state, &state->instr->operands[0], operandSize))
+		return false;
+
+	tempRip = (state->instr->rip + state->instr->length);
+	switch (operandSize)
+	{
+	case 1:
+		state->instr->operands[0].immediate = (tempRip + (int8_t)state->instr->operands[0].immediate);
+		break;
+	case 2:
+		state->instr->operands[0].immediate = (tempRip + (int16_t)state->instr->operands[0].immediate);
+		break;
+	case 4:
+		state->instr->operands[0].immediate = (tempRip + (int32_t)state->instr->operands[0].immediate);
+		break;
+	}
+
+	state->instr->operands[0].immediate &= ((1ull << (g_decoderModeSizeXref[state->mode] << 3)) - 1);
+
+	return true;
+}
+
+
 static bool DecodeJmpConditional(X86DecoderState* const state, uint8_t opcode)
 {
 	static const X86Operation ops[16] =
@@ -843,8 +871,7 @@ static bool DecodeJmpConditional(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSize = operandSizes[operandSizeBit][state->operandMode];
 	const uint8_t op = (opcode & 0xf);
 
-	// Grab the offset
-	if (!DecodeImmediate(state, &state->instr->operands[0], operandSize))
+	if (!DecodeRelativeJmpTarget(state, operandSize))
 		return false;
 
 	state->instr->op = ops[op];
@@ -1791,7 +1818,7 @@ static bool DecodeLoop(X86DecoderState* const state, uint8_t opcode)
 	const size_t operation = opcode & 3;
 
 	// All three have one immediate byte argument (jump target)
-	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
+	if (!DecodeRelativeJmpTarget(state, 1))
 		return false;
 
 	state->instr->op = op[operation];
@@ -1808,7 +1835,7 @@ static bool DecodeJcxz(X86DecoderState* const state, uint8_t opcode)
 	(void)opcode;
 
 	// Fetch the immediate argument (jump target)
-	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
+	if (!DecodeRelativeJmpTarget(state, 1))
 		return false;
 
 	state->instr->op = op[state->addrMode];
@@ -2425,7 +2452,7 @@ static bool DecodeCallJmpRelative(X86DecoderState* const state, uint8_t opcode)
 
 	(void)opcode;
 
-	if (!DecodeImmediate(state, &state->instr->operands[0], operandBytes))
+	if (!DecodeRelativeJmpTarget(state, operandBytes))
 		return false;
 
 	state->instr->op = operations[operation];
@@ -2454,7 +2481,7 @@ static bool DecodeJmpRelativeByte(X86DecoderState* const state, uint8_t opcode)
 {
 	(void)opcode;
 
-	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
+	if (!DecodeRelativeJmpTarget(state, 1))
 		return false;
 
 	state->instr->op = X86_JMPN;
