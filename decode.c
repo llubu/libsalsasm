@@ -3817,23 +3817,95 @@ static bool DecodeShufpd(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeGroup9(X86DecoderState* const state, uint8_t opcode)
 {
-	static const X86Operation operations[] = {X86_CMPXCHG8B, X86_CMPXCHG16B};
-	static const uint8_t operandSizes[] = {8, 16};
-	const uint8_t op = 0; // FIXME: REX.W
 	ModRmByte modRm;
+	uint8_t operandSize;
 
 	(void)opcode;
 
 	if (!Fetch(state, 1, &modRm.byte))
 		return false;
+
 	if (IsModRmRmFieldReg(modRm))
+	{
+		if (modRm.reg == 6)
+		{
+			operandSize = g_decoderModeSizeXref[state->operandMode];
+			DecodeModRmRmFieldReg(operandSize, &state->instr->operands[0], modRm, state->rex);
+			state->instr->operandCount = 1;
+			state->instr->op = X86_RDRAND;
+			return true;
+		}
+		else if (modRm.reg == 7)
+		{
+			operandSize = g_decoderModeSizeXref[state->operandMode];
+			DecodeModRmRmFieldReg(operandSize, &state->instr->operands[0], modRm, state->rex);
+			state->instr->operandCount = 1;
+			state->instr->op = X86_RDSEED;
+			return true;
+		}
+
 		return false;
-	if (modRm.reg != 1)
+	}
+
+	if (state->secondaryTable == SECONDARY_TABLE_NORMAL)
+	{
+		static const X86Operation operations[] = {X86_CMPXCHG8B, X86_CMPXCHG16B};
+		switch (modRm.reg)
+		{
+		case 1:
+			state->instr->op = operations[state->rex.w];
+			operandSize = (state->rex.w ? 16 : 8);
+			break;
+		case 6:
+			state->instr->op = X86_VMPTRLD;
+			operandSize = 8;
+			break;
+		case 7:
+			state->instr->op = X86_VMPTRST;
+			operandSize = 8;
+			break;
+		default:
+			state->instr->op = X86_INVALID;
+			return false;
+		}
+	}
+	else if (state->secondaryTable == SECONDARY_TABLE_66)
+	{
+		if (modRm.reg != 6)
+		{
+			state->instr->op = X86_INVALID;
+			return false;
+		}
+
+		operandSize = 8;
+		state->instr->op = X86_VMCLEAR;
+	}
+	else if (state->secondaryTable == SECONDARY_TABLE_F3)
+	{
+		switch (modRm.reg)
+		{
+		case 6:
+			operandSize = 8;
+			state->instr->op = X86_VMXON;
+			break;
+		case 7:
+			operandSize = 8;
+			state->instr->op = X86_VMPTRST;
+			break;
+		default:
+			state->instr->op = X86_INVALID;
+			return false;
+		}
+	}
+	else
+	{
+		state->instr->op = X86_INVALID;
 		return false;
-	if (!DecodeModRmRmFieldMemory(state, operandSizes[op], &state->instr->operands[0], modRm))
+	}
+
+	if (!DecodeModRmRmFieldMemory(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
 
-	state->instr->op = operations[op];
 	state->instr->operandCount = 1;
 
 	return true;
@@ -3842,7 +3914,7 @@ static bool DecodeGroup9(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeBswap(X86DecoderState* const state, uint8_t opcode)
 {
-	uint8_t reg = (opcode & 0x7);
+	const uint8_t reg = (opcode & 0x7);
 
 	(void)opcode;
 
