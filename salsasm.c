@@ -69,7 +69,7 @@ static const char* const g_x86Mnemonics[] =
 	"fxch4", "fxch7", "fxrstor", "fxsave", "fxtract", "fyl2x", "fyl2xp1", "getsec",
 	"haddpd", "haddps", "hint_nop", "hlt", "hsubpd", "hsubps", "idiv", "imul",
 	"in", "inc", "ins", "insb", "insw", "insd", "insertps", "insertq", "int", "int1", "int3",
-	"icebp", "into", "invd", "invept", "invlpg", "invlpga", "invvpid", "iret", "iretd",
+	"icebp", "into", "invd", "invept", "invlpg", "invlpga", "invvpid", "invpcid", "iret", "iretd",
 	"iretq", "jb", "jnae", "jc", "jbe", "jna", "jcxz", "jecxz", "jrcxz",
 	"jl", "jnge", "jle", "jng", "jmpn", "jmpf", "jnc", "jnb", "jae",
 	"ja", "jnbe", "jnl", "jge", "jnle", "jg", "jno", "jpo", "jnp",
