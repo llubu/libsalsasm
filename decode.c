@@ -1024,8 +1024,8 @@ static bool DecodeTestXchgModRm(X86DecoderState* const state, uint8_t opcode)
 
 static bool DecodeNop(X86DecoderState* const state, uint8_t opcode)
 {
-	(void)opcode;
 	static const X86Operation ops[2] = {X86_NOP, X86_PAUSE};
+	(void)opcode;
 	state->instr->op = ops[state->instr->flags.repe];
 	state->instr->flags.repe = 0;
 	return true;
