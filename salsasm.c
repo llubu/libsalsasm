@@ -312,11 +312,9 @@ static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t
 	if (bit > 32)
 		return snprintf(dest, maxLen, "%.16llx", (long long unsigned int)addr);
 	else if (bit > 16)
-		return snprintf(dest, maxLen, "%.08lx", (long unsigned int)addr);
-	else if (bit > 8)
-		return snprintf(dest, maxLen, "%.04x", (uint16_t)addr);
+		return snprintf(dest, maxLen, "%.08x", (unsigned int)addr);
 	else
-		return snprintf(dest, maxLen, "%.02x", (uint8_t)addr);
+		return snprintf(dest, maxLen, "%.04hx", (unsigned short)addr);
 }
 
 
