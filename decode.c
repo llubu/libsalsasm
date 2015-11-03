@@ -1109,6 +1109,8 @@ static bool DecodeMovCmpString(X86DecoderState* const state, uint8_t opcode)
 	const X86Operation operation = operations[opSize >> 1][op];
 
 	state->instr->op = operation;
+	if (state->instr->op == X86_INVALID)
+		return false;
 	state->instr->operandCount = 2;
 	state->instr->operands[0].size = opSize;
 	state->instr->operands[1].size = opSize;
@@ -1518,13 +1520,15 @@ static bool DecodeFPMovNegConditional(X86DecoderState* const state, uint8_t opco
 		// Memory!
 		if (!DecodeModRmRmFieldMemory(state, 4, &state->instr->operands[1], modRm))
 			return false;
+		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
 		state->instr->operands[1].size = operandSizes[modRm.reg];
 
 		state->instr->operands[0].operandType = X86_ST0;
 		state->instr->operands[0].size = 10;
 
 		state->instr->operandCount = 2;
-		state->instr->op = operations[modRm.reg];
 	}
 	else if ((modRm.byte != 0xe2) && (modRm.byte != 0xe3))
 	{
@@ -1541,6 +1545,8 @@ static bool DecodeFPMovNegConditional(X86DecoderState* const state, uint8_t opco
 		state->instr->operands[0].size = 10;
 
 		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
 		state->instr->operandCount = 2;
 	}
 	else
@@ -1633,6 +1639,8 @@ static bool DecodeFPFreeStore(X86DecoderState* const state, uint8_t opcode)
 			return false;
 
 		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
 		if (modRm.reg < 4)
 		{
 			state->instr->operands[1] = operand;
@@ -1659,6 +1667,10 @@ static bool DecodeFPFreeStore(X86DecoderState* const state, uint8_t opcode)
 		{
 			state->instr->operands[1].operandType = g_fpSources[modRm.rm];
 			state->instr->operands[1].size = 10;
+		}
+		else if (state->instr->op == X86_INVALID)
+		{
+			return false;
 		}
 		else
 		{
@@ -1710,10 +1722,12 @@ static bool DecodeFPArithmeticPop(X86DecoderState* const state, uint8_t opcode)
 			X86_FSUBRP, X86_FSUBP, X86_FDIVRP, X86_FDIVP
 		};
 
+		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
+
 		state->instr->operands[1].operandType = g_fpSources[modRm.rm];
 		state->instr->operands[1].size = 10;
-
-		state->instr->op = operations[modRm.reg];
 	}
 	else
 	{
@@ -2315,6 +2329,8 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 	const uint8_t operandSel = (operandSize >> 1);
 
 	state->instr->op = operations[operationBits][operandSel];
+	if (state->instr->op == X86_INVALID)
+		return false;
 	state->instr->operandCount = 2;
 
 	state->instr->operands[0].operandType = dests[operationBits][operandSel];
@@ -2578,8 +2594,10 @@ static bool DecodeGroup5(X86DecoderState* const state, uint8_t opcode)
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
 
-	state->instr->operandCount = 1;
 	state->instr->op = operations[modRm.reg];
+	if (state->instr->op == X86_INVALID)
+		return false;
+	state->instr->operandCount = 1;
 
 	return true;
 }
@@ -2961,6 +2979,8 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 		}
 
 		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
 		state->instr->operandCount = 1;
 	}
 	else
@@ -3005,6 +3025,8 @@ static bool DecodeGroup7(X86DecoderState* const state, uint8_t opcode)
 		case 7:
 			regRm = (modRm.byte & 0x3f);
 			state->instr->op = operations[regRm];
+			if (state->instr->op == X86_INVALID)
+				return false;
 			break;
 		case 4:
 			operandSize = g_decoderModeSizeXref[state->operandMode];
@@ -3054,6 +3076,8 @@ static bool DecodeSys(X86DecoderState* const state, uint8_t opcode)
 		return false;
 	}
 	state->instr->op = operations[op];
+	if (state->instr->op == X86_INVALID)
+		return false;
 	return true;
 }
 
@@ -3554,6 +3578,8 @@ static bool DecodeGroup15(X86DecoderState* const state, uint8_t opcode)
 			X86_INVALID, X86_LFENCE, X86_MFENCE, X86_SFENCE
 		};
 		state->instr->op = operations[modRm.reg];
+		if (state->instr->op == X86_INVALID)
+			return false;
 	}
 
 	return true;
