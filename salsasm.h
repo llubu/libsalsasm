@@ -308,7 +308,10 @@ typedef struct X86Instruction
 	uint64_t rip;
 } X86Instruction;
 
-#define SIGN_EXTEND64(val, bytes) (int64_t)(((int64_t)(val)) | ((int64_t)((((int64_t)val) << ((8 - bytes) << 3)) & 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
+#define SIGN_EXTEND64(val, bytes) \
+	(int64_t)(((int64_t)(val)) \
+	| ((int64_t)((((uint64_t)val) << ((8 - bytes) << 3)) \
+	& 0x8000000000000000ll) >> ((8 - (bytes)) << 3)))
 
 typedef bool (*InstructionFetchCallback)(void* ctxt, size_t len, uint8_t* result);
 
