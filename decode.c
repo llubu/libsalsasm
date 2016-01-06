@@ -2035,8 +2035,7 @@ static bool DecodeInOutString(X86DecoderState* const state, uint8_t opcode)
 
 	state->instr->operands[operand1].operandType = X86_MEM;
 	state->instr->operands[operand1].size = operandSize;
-	state->instr->operands[operand1].components[0] = memOperands[state->addrMode][0];
-	state->instr->operands[operand1].components[1] = memOperands[state->addrMode][1];
+	state->instr->operands[operand1].components[0] = memOperands[state->addrMode][opBit];
 
 	return true;
 }
