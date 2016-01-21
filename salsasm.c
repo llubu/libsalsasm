@@ -559,7 +559,10 @@ size_t GetInstructionString(char* const dest, const size_t maxLen, const char* f
 				len = PrintOperands(dstPtr, remaining, instr->operands);
 				break;
 			case 'b':
-				len = PrintBytes(dstPtr, remaining, instr->bytes, instr->length);
+				if (instr->op != X86_INVALID)
+					len = PrintBytes(dstPtr, remaining, instr->bytes, instr->length);
+				else
+					len = PrintBytes(dstPtr, remaining, instr->bytes, 1);
 				break;
 			case 'a':
 				len = PrintAddress(dstPtr, remaining, instr->rip);
