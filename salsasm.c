@@ -490,7 +490,7 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 
 	dstPtr = dest;
 	remaining = maxLen;
-	limit = ((maxLen >> 1) > instrLen) ? instrLen : (maxLen >> 1);
+	limit = ((remaining >> 1) > instrLen) ? instrLen : (remaining >> 1);
 	for (i = 0; i < limit; i++)
 	{
 		size_t len = snprintf(dstPtr, remaining, "%.02x", bytes[i]);
@@ -499,7 +499,7 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 	}
 
 	// Pad with spaces so we get a constant field width
-	limit = ((maxLen >> 1) > (15 - instrLen)) ? (15 - instrLen) : (maxLen >> 1);
+	limit = ((remaining >> 1) > (15 - instrLen)) ? (15 - instrLen) : (remaining >> 1);
 	for (i = 0; i < limit; i++)
 	{
 		size_t len = snprintf(dstPtr, remaining, "  ");
