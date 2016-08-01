@@ -21,6 +21,7 @@
 */
 #include <memory.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "salsasm_types.h"
 #include "decode.h"
@@ -318,16 +319,16 @@ static size_t PrintAddress(char* const dest, const size_t maxLen, const uint64_t
 }
 
 
-static size_t PrintImmediate(char* const dest, size_t const maxLen, const uint64_t immediate, const uint8_t size)
+static size_t PrintImmediate(char* const dest, const size_t maxLen, const uint64_t immediate, const uint8_t size)
 {
 	switch (size)
 	{
 	case 1:
-		return snprintf(dest, maxLen, "%hhx", (uint8_t)immediate);
+		return snprintf(dest, maxLen, "%hhx", (int8_t)immediate);
 	case 2:
-		return snprintf(dest, maxLen, "%hx", (uint16_t)immediate);
+		return snprintf(dest, maxLen, "%hx", (int16_t)immediate);
 	case 4:
-		return snprintf(dest, maxLen, "%x", (uint32_t)immediate);
+		return snprintf(dest, maxLen, "%x", (int32_t)immediate);
 	case 8:
 		return snprintf(dest, maxLen, "%llx", (long long unsigned int)immediate);
 	default:
@@ -383,16 +384,33 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 
 	if (((operand->components[0] != X86_NONE) || (operand->components[1] != X86_NONE)) && operand->immediate)
 	{
-		len = snprintf(dstPtr, remaining, "+");
-		dstPtr += len;
-		remaining -= len;
-	}
+		if ((operand->immediate > -0x80) && (operand->immediate < 0))
+		{
+			len = snprintf(dstPtr, remaining, "-");
+			dstPtr += len;
+			remaining -= len;
 
-	if (operand->immediate || ((operand->components[0] == X86_NONE) && (operand->components[1] == X86_NONE)))
+			len = PrintImmediate(dstPtr, remaining, -operand->immediate, 1);
+			dstPtr += len;
+			remaining -= len;
+		}
+		else
+		{
+			len = snprintf(dstPtr, remaining, "+");
+			dstPtr += len;
+			remaining -= len;
+
+			len = PrintImmediate(dstPtr, remaining, operand->immediate, 4);
+			dstPtr += len;
+			remaining -= len;
+		}
+	}
+	else if (operand->components[0] == X86_NONE)
 	{
-		len = PrintAddress(dstPtr, remaining, operand->immediate);
-		dstPtr += len;
-		remaining -= len;
+			len = PrintImmediate(dstPtr, remaining, operand->immediate, 4);
+			dstPtr += len;
+			remaining -= len;
+
 	}
 
 	remaining -= snprintf(dstPtr, remaining, "]");

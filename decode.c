@@ -575,7 +575,7 @@ static __inline bool DecodeModRmRmFieldMemory(X86DecoderState* const state, uint
 		if (!Fetch(state, dispBytes, (uint8_t*)&displacement))
 			return false;
 
-		operand->immediate = displacement;
+		operand->immediate = SIGN_EXTEND64(displacement, dispBytes);
 	}
 
 	return true;
