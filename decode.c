@@ -4276,9 +4276,9 @@ static bool DecodeGroup8(X86DecoderState* const state, uint8_t opcode)
 	if (operations[modRm.reg] == X86_INVALID)
 		return false;
 
-	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[1], modRm))
+	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[0], modRm))
 		return false;
-	if (!DecodeImmediate(state, &state->instr->operands[0], 1))
+	if (!DecodeImmediate(state, &state->instr->operands[1], 1))
 		return false;
 
 	state->instr->op = operations[modRm.reg];
