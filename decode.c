@@ -376,6 +376,7 @@ static const ModRmRmOperand* const g_modRmRmOperands[4] =
 
 static const uint8_t g_operandOrder[2][2] = {{0, 1}, {1, 0}};
 static const uint8_t g_decoderModeSizeXref[3] = {2, 4, 8};
+static const uint64_t g_decoderModeSizeMaskXref[3] = {0xffff, 0xffffffff, 0xffffffffffffffff};
 // static const uint8_t g_decoderModeSimdSizeXref[4] = {8, 16, 32, 64};
 static const uint8_t g_sseOperandSizes[3] = {16, 32, 64};
 static const uint8_t g_simdOperandSizes[4] = {8, 16, 32, 64};
@@ -849,7 +850,7 @@ static __inline bool DecodeRelativeJmpTarget(X86DecoderState* const state, uint8
 		break;
 	}
 
-	state->instr->operands[0].immediate &= ((1ull << (g_decoderModeSizeXref[state->mode] << 3)) - 1);
+	state->instr->operands[0].immediate &= g_decoderModeSizeMaskXref[state->mode];
 	state->instr->operands[0].size = g_decoderModeSizeXref[state->mode];
 
 	return true;
@@ -2839,8 +2840,8 @@ static __inline void DecodeModRmRmFieldSimdReg(uint8_t operandSize, X86Operand* 
 static __inline void DecodeModRmRegFieldSimd(uint8_t operandSize, X86Operand* const operand,
 	ModRmByte modRm, RexByte rex)
 {
-	(void)rex;
-	operand->operandType = g_simdOperandTypes[operandSize >> 4][modRm.reg];
+	const uint8_t reg = ((rex.r << 3) | modRm.reg);
+	operand->operandType = g_simdOperandTypes[operandSize >> 4][reg];
 	operand->size = operandSize;
 }
 
@@ -4307,16 +4308,27 @@ static bool DecodeBitScan(X86DecoderState* const state, uint8_t opcode)
 static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode)
 {
 	static const uint8_t operandSizes[] = {4, 4, 8};
-	static const X86OperandType operands[2][8] =
+	static const X86OperandType operands[2][16] =
 	{
-		{X86_CR0, X86_NONE, X86_CR2, X86_CR3, X86_CR4, X86_NONE, X86_NONE, X86_NONE},
-		{X86_DR0, X86_DR1, X86_DR2, X86_DR3, X86_DR4, X86_DR5, X86_DR6, X86_DR7}
+		{
+			X86_CR0, X86_NONE, X86_CR2, X86_CR3,
+			X86_CR4, X86_NONE, X86_NONE, X86_NONE,
+			X86_CR8, X86_NONE, X86_NONE, X86_NONE,
+			X86_NONE, X86_NONE, X86_NONE, X86_NONE
+		},
+		{
+			X86_DR0, X86_DR1, X86_DR2, X86_DR3,
+			X86_DR4, X86_DR5, X86_DR6, X86_DR7,
+			X86_NONE, X86_NONE, X86_NONE, X86_NONE,
+			X86_NONE, X86_NONE, X86_NONE, X86_NONE
+		}
 	};
 	const uint8_t direction = ((opcode >> 1) & 1);
 	const uint8_t operand0 = direction;
 	const uint8_t operand1 = ((~direction) & 1);
 	const uint8_t operandSel = (opcode & 1);
 	const uint8_t operandSize = operandSizes[state->mode];
+	uint8_t reg;
 	ModRmByte modRm;
 
 	if (!Fetch(state, 1, &modRm.byte))
@@ -4326,7 +4338,8 @@ static bool DecodeMovSpecialPurpose(X86DecoderState* const state, uint8_t opcode
 	if (!DecodeModRmRmField(state, operandSize, &state->instr->operands[operand0], modRm))
 		return false;
 
-	state->instr->operands[operand1].operandType = operands[operandSel][modRm.reg];
+	reg = ((state->rex.r << 3) | modRm.reg);
+	state->instr->operands[operand1].operandType = operands[operandSel][reg];
 	if (state->instr->operands[operand1].operandType == X86_NONE)
 		return false;
 	state->instr->operands[0].size = operandSize;
@@ -6978,7 +6991,7 @@ static bool DecodeMovntdqa(X86DecoderState* const state, uint8_t opcode)
 	state->instr->operands[1].size = 8;
 	state->instr->flags.operandSizeOverride = 0;
 	state->instr->operandCount = 2;
-	state->instr->op = X86_PMULDQ;
+	state->instr->op = X86_MOVNTDQA;
 	return true;
 }
 

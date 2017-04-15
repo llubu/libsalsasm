@@ -343,6 +343,15 @@ static size_t PrintRegister(char* const dest, size_t const maxLen, const X86Oper
 }
 
 
+static __inline void AdjustRemaining(size_t* const remaining, size_t len)
+{
+	if (*remaining <= len)
+		*remaining = 0;
+	else
+		*remaining -= len;
+}
+
+
 static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X86Operand* const operand)
 {
 	size_t remaining;
@@ -353,14 +362,14 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 	remaining = maxLen;
 
 	len = snprintf(dstPtr, remaining, "[");
-	remaining -= len;
+	AdjustRemaining(&remaining, len);
 	dstPtr += len;
 
 	if (operand->components[0] != X86_NONE)
 	{
 		len = PrintRegister(dstPtr, remaining, operand->components[0]);
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 	}
 
 	if (operand->components[1] != X86_NONE)
@@ -369,16 +378,16 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 		{
 			len = snprintf(dstPtr, remaining, "+");
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 		}
 		len = PrintRegister(dstPtr, remaining, operand->components[1]);
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 		if (operand->scale > 1)
 		{
 			len = snprintf(dstPtr, remaining, "*%d", operand->scale);
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 		}
 	}
 
@@ -388,32 +397,33 @@ static size_t PrintMemoryOperand(char* const dest, size_t const maxLen, const X8
 		{
 			len = snprintf(dstPtr, remaining, "-");
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 
 			len = PrintImmediate(dstPtr, remaining, -operand->immediate, 1);
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 		}
 		else
 		{
 			len = snprintf(dstPtr, remaining, "+");
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 
 			len = PrintImmediate(dstPtr, remaining, operand->immediate, 4);
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 		}
 	}
 	else if (operand->components[0] == X86_NONE)
 	{
 			len = PrintImmediate(dstPtr, remaining, operand->immediate, 4);
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 
 	}
 
-	remaining -= snprintf(dstPtr, remaining, "]");
+	len = snprintf(dstPtr, remaining, "]");
+	AdjustRemaining(&remaining, len);
 
 	return (maxLen - remaining);
 }
@@ -432,18 +442,17 @@ static size_t PrintOperands(char* const dest, size_t const maxLen, const X86Oper
 		size_t len;
 		if (operands[i].operandType == X86_NONE)
 			break;
+		if (!remaining)
+			break;
 		if (i != 0)
 		{
 			len = snprintf(dstPtr, remaining, ", ");
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 		}
 		switch (operands[i].operandType)
 		{
-		case X86_NONE:
-			// Handled above. Should never get here.
-			len = 0;
-			break;
+		// case X86_NONE: // Handled above.
 		case X86_MEM:
 			len = PrintMemoryOperand(dstPtr, remaining, &operands[i]);
 			break;
@@ -456,7 +465,7 @@ static size_t PrintOperands(char* const dest, size_t const maxLen, const X86Oper
 		}
 
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 	}
 
 	return (maxLen - remaining);
@@ -477,23 +486,23 @@ static size_t PrintInstruction(char* const dest, const size_t maxLen, const X86I
 	{
 		len = snprintf(dstPtr, remaining, "lock ");
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 	}
 	if (instr->flags.repe)
 	{
 		len = snprintf(dstPtr, remaining, "rep ");
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 	}
 	if (instr->flags.repne)
 	{
 		len = snprintf(dstPtr, remaining, "repne ");
 		dstPtr += len;
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 	}
 
 	len = snprintf(dstPtr, remaining, "%s", mnemonic);
-	remaining -= len;
+	AdjustRemaining(&remaining, len);
 
 	return (maxLen - remaining);
 }
@@ -512,7 +521,7 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 	for (i = 0; i < limit; i++)
 	{
 		size_t len = snprintf(dstPtr, remaining, "%.02x", bytes[i]);
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 		dstPtr += len;
 	}
 
@@ -521,7 +530,7 @@ static size_t PrintBytes(char* const dest, size_t const maxLen, const uint8_t* c
 	for (i = 0; i < limit; i++)
 	{
 		size_t len = snprintf(dstPtr, remaining, "  ");
-		remaining -= len;
+		AdjustRemaining(&remaining, len);
 		dstPtr += len;
 	}
 
@@ -595,7 +604,7 @@ size_t GetInstructionString(char* const dest, const size_t maxLen, const char* f
 			}
 
 			dstPtr += len;
-			remaining -= len;
+			AdjustRemaining(&remaining, len);
 			delimitter = false;
 		}
 	}
