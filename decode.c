@@ -2292,11 +2292,11 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 		{X86_LODSB, X86_LODSW, X86_LODSD, X86_INVALID, X86_LODSQ},
 		{X86_SCASB, X86_SCASW, X86_SCASD, X86_INVALID, X86_SCASQ}
 	};
-	static const X86OperandType sources[3][4] =
+	static const X86OperandType sources[3][5] =
 	{
-		{X86_AL, X86_AX, X86_EAX, X86_RAX},
-		{X86_MEM, X86_MEM, X86_MEM, X86_MEM},
-		{X86_MEM, X86_MEM, X86_MEM, X86_MEM}
+		{X86_AL, X86_AX, X86_EAX, X86_INVALID, X86_RAX},
+		{X86_MEM, X86_MEM, X86_MEM, X86_INVALID, X86_MEM},
+		{X86_MEM, X86_MEM, X86_MEM, X86_INVALID, X86_MEM}
 	};
 	static const X86OperandType sourceComponents[3][3] =
 	{
@@ -2304,11 +2304,11 @@ static bool DecodeString(X86DecoderState* const state, uint8_t opcode)
 		{X86_SI, X86_ESI, X86_RSI},
 		{X86_DI, X86_EDI, X86_RDI}
 	};
-	static const X86OperandType dests[3][4] =
+	static const X86OperandType dests[3][5] =
 	{
-		{X86_MEM, X86_MEM, X86_MEM, X86_MEM},
-		{X86_AL, X86_AX, X86_EAX, X86_RAX},
-		{X86_AL, X86_AX, X86_EAX, X86_RAX}
+		{X86_MEM, X86_MEM, X86_MEM, X86_INVALID, X86_MEM},
+		{X86_AL, X86_AX, X86_EAX, X86_INVALID, X86_RAX},
+		{X86_AL, X86_AX, X86_EAX, X86_INVALID, X86_RAX}
 	};
 	static const X86OperandType destComponents[3][3] =
 	{
